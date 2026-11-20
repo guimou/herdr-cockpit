@@ -17,6 +17,7 @@ This copies `mods/cockpit` and the two layouts into `~/.config/herdr-app` and ru
 - **Active view** (layout `cockpit`): crew rail on the left, a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the milestone, current activity and pending decision.
 - **Ambient view** (layout `cockpit-ambient`): up to four large crew cards and the fleet strip, for a monitor you glance at.
 - **Finer states**: hailing, working, thinking, on subagents, on CI, done, standing by, asleep. Each has its own shape and motion as well as a caption.
+- **Ships panel**: Herdr's Spaces list under the crew rail, with its heading renamed. The installer makes it as a renamed copy of the Spaces mod you have; run `tools/install.sh` again after a Herdr update to refresh the copy.
 
 Not built yet: the fleet picker overlay, per-state portraits, extra state sounds.
 

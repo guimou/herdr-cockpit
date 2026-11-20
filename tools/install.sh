@@ -26,10 +26,30 @@ rm -rf "$home/mods/cockpit"
 cp -R "$repo/mods/cockpit" "$home/mods/cockpit"
 cp "$repo/layouts/cockpit.json" "$repo/layouts/cockpit-ambient.json" "$home/layouts/"
 
+# The "Ships" panel is Herdr's own Spaces mod with its heading renamed. The
+# heading is fixed in the mod's code, so this makes a renamed copy from the
+# Spaces mod installed here and points the cockpit layout at it. A copy does not
+# follow Herdr's updates: run this script again after updating Herdr to refresh
+# it. If the heading is not where it is expected, the layout keeps plain Spaces.
+ships=""
+if grep -q 'el\.child("Spaces")' "$home/mods/spaces/main.js" 2>/dev/null; then
+  rm -rf "$home/mods/ships"
+  mkdir "$home/mods/ships"
+  sed 's/el\.child("Spaces")/el.child("Ships")/' "$home/mods/spaces/main.js" > "$home/mods/ships/main.js"
+  sed 's/"title": *"Spaces"/"title": "Ships"/' "$home/mods/spaces/mod.json" > "$home/mods/ships/mod.json"
+  sed 's/"mod": "spaces"/"mod": "ships"/' "$repo/layouts/cockpit.json" > "$home/layouts/cockpit.json"
+  ships="yes"
+  echo "Made the Ships panel from Herdr's Spaces mod"
+else
+  rm -rf "$home/mods/ships"
+  echo "Could not rename the Spaces panel to Ships (Herdr's Spaces mod is missing or has changed): keeping Spaces." >&2
+fi
+
 echo "Installed mods/cockpit and layouts cockpit, cockpit-ambient into $home"
 
 if command -v herdr-app >/dev/null 2>&1; then
   herdr-app check "$home/mods/cockpit" && echo "herdr-app check passed"
+  if [ -n "$ships" ]; then herdr-app check "$home/mods/ships" && echo "herdr-app check passed for the Ships panel"; fi
 else
   echo "herdr-app not on PATH: run 'herdr-app check $home/mods/cockpit' yourself."
 fi
