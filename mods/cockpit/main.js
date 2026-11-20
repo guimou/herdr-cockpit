@@ -47,8 +47,9 @@ function slotKey(n, color) {
 
 // ------------------------------------------------------------------ rail
 
-// Below this width the rail has no room for text: portraits only.
-const COMPACT_BELOW = 132;
+// Below this width the rail has no room for text: portraits only. The same
+// width at which Herdr's Spaces panel under it goes compact.
+const COMPACT_BELOW = 160;
 
 class Rail {
   init(_pr, cx) {
