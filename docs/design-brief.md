@@ -109,6 +109,15 @@ Each step is usable on its own.
 - Sounds for done and blocked are set in `settings.json` (`sounds.done`, `sounds.blocked`). A mod can play others with `playSound(file)`.
 - Mods must be installed as real files in the Herdr home: a symlinked mod shows no images and does not reload (from the recipe of a community layout).
 
+## What the app's source confirms (github.com/herdrdev/herdr-app, read 2026-11-20)
+
+Herdr is open source (Apache 2.0). `defaults/` holds the shipped mods, layouts, `AGENTS.md` and `herdr.d.ts`, the typed list of everything a mod can call.
+
+- Saving any file of a mod reloads it in place, so a tool that rewrites a mod file takes effect at once.
+- A mod can read and write files (`readTextFile`, `writeTextFile`), knows the app's folder (`appHome()`), and its shared state (`shared`, `setShared`) is persisted. An in-app crew assignment is possible.
+- A mod learns its size from `on_size_change` on its root element. The shipped Spaces mod instead reads the sidebar's width from `layout()` and goes compact under 160 px.
+- The Spaces panel's heading is fixed in its code, not a setting. Shipped mods are changed by copying them (`mod.clone`); copies are never updated by Herdr. The installer makes the Ships panel this way.
+
 ## First build (2026-11-20)
 
 Layouts `cockpit` and `cockpit-ambient` with the `cockpit` mod: crew rail, ship header, journal panel, pane headers with the HOST marker, ambient cards and fleet strip, the eight states drawn in the portrait frame, and the bridge keys. Finer states and the journal come from the status file described in [status-file.md](status-file.md). Not built yet: the fleet picker, per-state stills, extra state sounds.
