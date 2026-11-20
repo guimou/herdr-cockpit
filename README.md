@@ -32,6 +32,7 @@ Not built yet: the fleet picker overlay, per-state portraits, extra state sounds
 | `alt-1` to `alt-4` | Jump to a crew member |
 | `ctrl-alt-1` to `ctrl-alt-4` | Bind the crew member in front of you to that number |
 | `alt-j` | Show or hide the journal panel |
+| `alt-shift-j` | Collapse the journal to a narrow rail, or open it again (also the `>` button at its top) |
 | `alt-c` | Open the crew assignment menu for the ship in front of you |
 
 ### Your fleet

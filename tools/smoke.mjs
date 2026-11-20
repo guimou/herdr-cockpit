@@ -85,6 +85,7 @@ export const writeTextFile = async (path, text, expected) => {
   return null;
 };
 export const appHome = () => "/herdr";
+export const layout = () => world.layout;
 export const openOverlay = (spec) => { world.overlays.push(spec); return "o1"; };
 export const closeOverlay = () => null;
 `);
@@ -198,6 +199,20 @@ check("bind4 puts the focused agent on key 4", model.slots(model.fleet())[3].age
 model.handle("hail", true);
 check("hail goes to the hailing agent first, switching to the active view", world.ran.at(-2)[0] === "layout.switch" && world.ran.at(-1)[1].terminal === "t5");
 everything();
+
+// The journal collapses to a rail by width, as Herdr's sidebar does.
+world.layout = { id: "root", children: [{ id: "work", children: [{ id: "journal", size: { px: 380 } }] }] };
+world.ran.length = 0;
+model.handle("journal");
+check("collapsing the journal remembers its width", world.ran.at(-1)[0] === "layout.resize" && world.ran.at(-1)[1].px === 44 && world.shared["cockpit.journal.width"] === 380);
+world.layout.children[0].children[0].size.px = 44;
+check("a narrow journal counts as collapsed", model.journalNarrow());
+everything();
+model.handle("journal");
+check("opening the journal restores its width", world.ran.at(-1)[1].id === "journal" && world.ran.at(-1)[1].px === 380);
+world.agents = [];
+everything();
+world.layout = null;
 
 // 5. Assigning crew in the app: the roster file is written, read back and shown.
 world.agents = [agent("t3", "s1", "idle", true)];

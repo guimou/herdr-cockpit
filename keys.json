@@ -3,6 +3,7 @@
     "alt-a": "layout.switch:cockpit-ambient",
     "alt-h": "cockpit.hail",
     "alt-j": "layout.toggle:journal",
+    "alt-shift-j": "cockpit.journal",
     "alt-c": "cockpit.assign",
     "alt-1": "cockpit.crew1",
     "alt-2": "cockpit.crew2",
