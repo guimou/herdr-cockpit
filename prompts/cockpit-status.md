@@ -1,22 +1,24 @@
-## Cockpit status file
+## Cockpit status
 
-I follow your work from a dashboard that reads a small status file. Keep that file current during any task, of any kind, without being asked and without mentioning it in your replies. If I only ask a quick question that involves no work, leave the file alone.
+I follow your work from a dashboard that reads a small status report. Keep that report current during any task, of any kind, without being asked and without mentioning it in your replies. If I only ask a quick question that involves no work, send nothing.
 
-### Where
+### How
 
-`.cockpit/${HC_TERMINAL_ID:-status}.json`, in the folder you were started in: the name is the value of the `HC_TERMINAL_ID` environment variable when it is set, and `status` otherwise.
-
-The first time, create the folder and keep it out of git:
+Pipe the status, as JSON, to the script `.cockpit/report` in the folder you were started in:
 
 ```sh
-mkdir -p .cockpit && echo '*' > .cockpit/.gitignore
+sh .cockpit/report <<'EOF'
+{ "task": "Fix the flaky login test", "activity": "Reproducing the failure" }
+EOF
 ```
 
-Only the main agent writes this file. If you are a subagent, never touch it.
+The script chooses the file and its name; never write a file in `.cockpit/` yourself, and do not create or edit the script. If `.cockpit/report` does not exist, the dashboard is not running: skip this section, and look again at the start of the next task.
+
+Only the main agent reports. If you are a subagent, never run the script.
 
 ### What
 
-Rewrite the whole file each time, as valid JSON, in one command. Leave out the fields that do not apply.
+Send the whole status each time, as valid JSON, in one command. Leave out the fields that do not apply.
 
 ```json
 {
@@ -29,8 +31,7 @@ Rewrite the whole file each time, as valid JSON, in one command. Leave out the f
     "options": ["Fix the cache invalidation", "Disable the cache in the test setup"],
     "recommendation": "Fix the invalidation: the same bug can reach production."
   },
-  "decisions": ["Keep the retry helper, drop the sleep-based wait"],
-  "updated": "2026-11-20T14:40:00Z"
+  "decisions": ["Keep the retry helper, drop the sleep-based wait"]
 }
 ```
 
@@ -40,11 +41,10 @@ Rewrite the whole file each time, as valid JSON, in one command. Leave out the f
 - `state`: `"thinking"` while you investigate or plan before acting, `"subagents"` while you wait on subagents, `"ci"` while you wait on CI or another long-running job, `"blocked"` while you wait for my answer. Leave it out the rest of the time.
 - `question`: what you need from me, written so that I can answer it an hour later with no memory of the conversation: the context in one or two sentences, the options, and the one you recommend with the reason.
 - `decisions`: one short line for each decision I made or approved during this task, oldest first.
-- `updated`: the current time in UTC, exactly as printed by `date -u +%Y-%m-%dT%H:%M:%SZ`. Run the command each time; never type or estimate the time, and never put a `Z` after a local time.
 
 ### When
 
-1. When you start a task: write a fresh file. Do not carry over the question or the decisions of the previous task.
+1. When you start a task: send a fresh status. Do not carry over the question or the decisions of the previous task.
 2. When the work moves to a new phase: update `activity` (and `progress`). Not for every command.
 3. Before you wait on subagents or on CI: set `state`. When you resume: update it again.
 4. Before you ask me something or stop for my input: set `question` and `"state": "blocked"`.

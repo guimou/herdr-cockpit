@@ -266,7 +266,7 @@ class Journal {
     const f = m.file;
     if (!f) {
       return col.child(this.section("Journal",
-        txt("This agent has not written a status file yet. Its task, current activity and pending question appear here once it writes .cockpit/<terminal id>.json in the repo (see docs/agent-instructions.md).", 12, t.muted)));
+        txt("This agent has not reported yet. Its task, current activity and pending question appear here once it pipes a status to .cockpit/report (see docs/agent-instructions.md).", 12, t.muted)));
     }
     if (f.question) col = col.child(this.decision(m));
     if (f.milestone) {

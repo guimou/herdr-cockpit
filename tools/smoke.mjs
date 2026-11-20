@@ -7,7 +7,7 @@
 //   node tools/smoke.mjs
 
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -66,7 +66,7 @@ export const h_flex = () => el("h_flex");
 export const v_flex = () => el("v_flex");
 `);
 stub("herdr", `
-export const world = { spaces: [], agents: [], panes: [], shared: {}, props: {}, files: {}, ran: [], overlays: [] };
+export const world = { spaces: [], agents: [], panes: [], shared: {}, props: {}, files: {}, ran: [], overlays: [], terminals: [], execs: [] };
 export const spaces = () => world.spaces;
 export const agents = () => world.agents;
 export const panes = () => world.panes;
@@ -85,6 +85,12 @@ export const writeTextFile = async (path, text, expected) => {
   return null;
 };
 export const appHome = () => "/herdr";
+export const terminals = () => world.terminals;
+export const exec = async (command, args, options) => {
+  world.execs.push([command, args, options]);
+  if (command === "sh" && args[2] === "cockpit") world.files[options.cwd + "/.cockpit/report"] = args[3];
+  return { code: 0, stdout: "", stderr: "" };
+};
 export const layout = () => world.layout;
 export const openOverlay = (spec) => { world.overlays.push(spec); return "o1"; };
 export const closeOverlay = () => null;
@@ -199,6 +205,45 @@ check("bind4 puts the focused agent on key 4", model.slots(model.fleet())[3].age
 model.handle("hail", true);
 check("hail goes to the hailing agent first, switching to the active view", world.ran.at(-2)[0] === "layout.switch" && world.ran.at(-1)[1].terminal === "t5");
 everything();
+
+// Status files without terminal ids: the cockpit hands out a report script, and
+// finds each agent's file by the container its terminal runs.
+world.agents = [agent("t3", "s1", "working", true), agent("t12", "s1", "working"), agent("t20", "s1", "working")];
+world.terminals = [
+  { address: "t3", foreground: { argv: ["/usr/bin/podman", "run", "--rm", "-it", "--name", "ccbox-emauria-a1", "img"] } },
+  { address: "t12", argv: ["podman", "run", "--name=ompbox-emauria-b2", "img"] },
+  { address: "t20", foreground: { argv: ["claude"] } },
+];
+world.files = {
+  "/r/emauria/.cockpit/c-ccbox-emauria-a1.json": JSON.stringify({ task: "first agent" }),
+  "/r/emauria/.cockpit/c-ompbox-emauria-b2.json": JSON.stringify({ task: "second agent" }),
+  "/r/emauria/.cockpit/t20.json": JSON.stringify({ task: "third agent, on the host" }),
+  "/r/emauria/.cockpit/t3.json": JSON.stringify({ task: "left by an earlier agent that had terminal t3" }),
+  "/r/emauria/.cockpit/status.json": JSON.stringify({ task: "left by a lone agent" }),
+};
+await model.pollStatus();
+{
+  const st = world.shared["cockpit.status"];
+  check("three agents in one ship each get their own journal", st.t3.milestone === "first agent" && st.t12.milestone === "second agent" && st.t20.milestone === "third agent, on the host");
+  check("the cockpit puts the report script in the agent's folder", world.execs.some(([cmd, args, opt]) => cmd === "sh" && args[3] === model.REPORT && opt.cwd === "/r/emauria") && model.REPORT.startsWith("#!/bin/sh"));
+  everything();
+  // The script itself, run as an agent would.
+  const work = mkdtempSync(join(tmpdir(), "cockpit-report-"));
+  mkdirSync(join(work, ".cockpit"));
+  writeFileSync(join(work, ".cockpit", "report"), model.REPORT);
+  writeFileSync(join(work, "containerenv"), 'engine="podman-5.2"\nname="ccbox-emauria-a1"\nid="abc"\n');
+  const report = (env, input) => execFileSync("sh", [".cockpit/report"], { cwd: work, input, env: { PATH: process.env.PATH, COCKPIT_CONTAINERENV: join(work, "none"), ...env } });
+  report({ COCKPIT_CONTAINERENV: join(work, "containerenv"), HC_TERMINAL_ID: "t9" }, '{\n  "task": "in a box"\n}\n');
+  report({ HC_TERMINAL_ID: "t9" }, '{"task":"on the host"}');
+  report({}, "{}");
+  const boxed = JSON.parse(readFileSync(join(work, ".cockpit", "c-ccbox-emauria-a1.json"), "utf8"));
+  check("the script names the file after the container, and stamps the time", boxed.task === "in a box" && Math.abs(Date.parse(boxed.updated) - Date.now()) < 60000);
+  check("outside a container it uses the terminal id, else status.json",
+    JSON.parse(readFileSync(join(work, ".cockpit", "t9.json"), "utf8")).task === "on the host" && readFileSync(join(work, ".cockpit", "status.json"), "utf8") === "{}");
+  check("the script leaves no temporary file", readdirSync(join(work, ".cockpit")).every((f) => !f.startsWith(".report")));
+}
+world.terminals = [];
+world.agents = [];
 
 // The journal collapses to a rail by width, as Herdr's sidebar does.
 world.layout = { id: "root", children: [{ id: "work", children: [{ id: "journal", size: { px: 380 } }] }] };
