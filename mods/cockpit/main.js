@@ -2,7 +2,7 @@
 // (props.role), placed by layouts/cockpit.json and layouts/cockpit-ambient.json:
 //   rail     active view, left: crew portraits by ship, then ships without crew
 //   header   active view, top: the ship and crew member in front of you
-//   journal  active view, right: milestone, current activity, pending decision
+//   journal  active view, right: task or milestone, current activity, pending decision
 //   pane     active view, each pane's header: crew or HOST marker, pane buttons
 //   ambient  ambient view, whole window: four large crew cards and the fleet strip
 //   assign   a popup, opened by a right-click on a ship or crew member: who serves on this ship
@@ -236,18 +236,18 @@ class Journal {
     const f = m.file;
     if (!f) {
       return col.child(this.section("Journal",
-        txt("This agent has not written a status file yet. Its milestone, current activity and pending question appear here once it writes .cockpit/<terminal id>.json in the repo.", 12, t.muted)));
+        txt("This agent has not written a status file yet. Its task, current activity and pending question appear here once it writes .cockpit/<terminal id>.json in the repo (see docs/agent-instructions.md).", 12, t.muted)));
     }
     if (f.question) col = col.child(this.decision(m));
     if (f.milestone) {
       const p = f.progress;
       const W = 200;
-      col = col.child(this.section("Milestone", v_flex().gap(6)
+      col = col.child(this.section(f.kind === "milestone" ? "Milestone" : "Task", v_flex().gap(6)
         .child(txt(f.milestone, 13, t.foreground, 600))
         .when(Boolean(p), (el) => el.child(h_flex().gap(8).items_center()
           .child(div().relative().flex_none().w(W).h(4).bg(t.border)
             .child(div().absolute().left(0).top(0).h(4).w(Math.round(W * Math.min(1, p.done / p.total))).bg(m.ship.color)))
-          .child(txt(`${p.done}/${p.total} issues`, 11, t.muted))))));
+          .child(txt(`${p.done}/${p.total} ${f.kind === "milestone" ? "issues" : "steps"}`, 11, t.muted))))));
     }
     if (f.activity) col = col.child(this.section("Now", txt(f.activity, 13, t.foreground, 500)));
     if (f.decisions.length) {

@@ -253,7 +253,9 @@ function clean(o) {
   const p = o.progress;
   return {
     state: text(o.state, 20).toLowerCase(),
-    milestone: text(o.milestone, 120),
+    // `task` is the general name; `milestone` is kept for the milestone methodology.
+    milestone: text(o.milestone, 120) || text(o.task, 120),
+    kind: text(o.milestone, 120) ? "milestone" : "task",
     activity: text(o.activity, 200),
     question: question?.text ? question : null,
     decisions: Array.isArray(o.decisions) ? o.decisions.slice(-8).map((x) => text(x, 200)).filter(Boolean) : [],

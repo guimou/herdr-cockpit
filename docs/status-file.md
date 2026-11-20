@@ -1,6 +1,6 @@
 # Status file
 
-Herdr itself only knows four agent states: working, blocked, idle and done. The cockpit's finer states and the journal panel come from a small JSON file that each agent keeps up to date in its repository. Any agent can write it, so nothing depends on a particular harness.
+Herdr itself only knows four agent states: working, blocked, idle and done. The cockpit's finer states and the journal panel come from a small JSON file that each agent keeps up to date in its repository. Any agent can write it, so nothing depends on a particular harness. The prompt that makes agents write it is in [agent-instructions.md](agent-instructions.md); this page is the format.
 
 ## Where
 
@@ -11,7 +11,7 @@ Herdr itself only knows four agent states: working, blocked, idle and done. The 
 - `<terminal id>` is the agent's Herdr terminal address, such as `t7`. Herdr sets it in the terminal's environment as `HC_TERMINAL_ID`.
 - A ship with a single agent may write `.cockpit/status.json` instead, so that agent need not know its terminal id.
 - A ship with two or more agents needs the terminal id. For agents in containers, forward the variable into the container (for example `-e HC_TERMINAL_ID`).
-- Add `.cockpit/` to the repository's `.gitignore`.
+- Keep the folder out of git. The agent prompt does it with a `.cockpit/.gitignore` containing `*`, so the repository's own `.gitignore` need not change.
 
 The mod reads these files every 3 seconds from the folder of the agent's pane, which is on the host.
 
@@ -38,8 +38,9 @@ Every field is optional.
 | Field | Meaning |
 | --- | --- |
 | `state` | `thinking`, `subagents`, `ci` or `blocked`. Leave it out, or use any other value, for plain work. |
-| `milestone` | Milestone name, not issue names. |
-| `progress` | Issues closed out of total in the milestone. |
+| `task` | The goal of the current work, in a few words. Shown under "Task". |
+| `milestone` | Milestone name, not issue names. Used instead of `task` when the work is a milestone; shown under "Milestone". |
+| `progress` | Steps done out of total, or issues closed out of total for a milestone. |
 | `activity` | One line on what the agent is doing, at a high level. |
 | `question` | The pending question, with options and a recommendation. A plain string also works. Remove it once answered. |
 | `decisions` | Earlier decisions, oldest first. The last eight are shown. |

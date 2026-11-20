@@ -151,7 +151,7 @@ world.files = {
     question: { text: "Keep the old endpoint?", options: ["Keep it", "Remove it"], recommendation: "Remove it" },
     decisions: ["Use Stripe webhooks"], updated: Date.now() - 5 * 60000,
   }),
-  "/r/emauria/.cockpit/t12.json": JSON.stringify({ state: "subagents", activity: "Three reviewers running", updated: new Date().toISOString() }),
+  "/r/emauria/.cockpit/t12.json": JSON.stringify({ state: "subagents", task: "Fix the flaky login test", activity: "Three reviewers running", updated: new Date().toISOString() }),
   "/r/ccbox/.cockpit/status.json": JSON.stringify({ state: "thinking", milestone: "M1", question: "plain string question" }),
   "/r/jukebox/.cockpit/t7.json": "{ not json",
 };
@@ -164,6 +164,7 @@ check("crew take seats in terminal order (t3 before t12)", emauria.members[0].ag
 check("ranks appear only on a ship with several crew", model.callSign(emauria.members[1]) === "Emauria, Lt." && model.callSign(ccbox.members[0]) === "ccbox");
 check("blocked agent is hailing", emauria.members[0].state === "hailing");
 check("idle agent waiting on subagents is not shown idle", emauria.members[1].state === "subagents");
+check("a task is shown where a milestone would be", emauria.members[1].file.milestone === "Fix the flaky login test" && emauria.members[1].file.kind === "task" && emauria.members[0].file.kind === "milestone");
 check("a lone agent may use status.json", ccbox.members[0].state === "thinking" && ccbox.members[0].file.question.text === "plain string question");
 check("an unlisted ship keeps its space name and a palette color", jukebox.name === "agents-jukebox" && /^#/.test(jukebox.color) && jukebox.members[0].portrait === null);
 check("a broken status file is ignored", jukebox.members[0].file === null && jukebox.members[0].state === "idle");
