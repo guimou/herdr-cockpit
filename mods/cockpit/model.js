@@ -1,7 +1,7 @@
 // Data for every role: ships (spaces), crew (agents), their state, the status
 // files agents write, and the 1-4 control groups.
 
-import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, appHome, openOverlay, run, layout } from "herdr";
+import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, appHome, openOverlay, run, layout, terminals, exec } from "herdr";
 import { SHIPS, CREW, RANKS, autoColor } from "./fleet.js";
 
 export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file content }
@@ -263,7 +263,89 @@ export function handle(command, fromAmbient = false) {
 }
 
 // ---------------------------------------------------------------- status files
-// <repo>/.cockpit/<terminal id>.json, written by the agent. See docs/status-file.md.
+// <repo>/.cockpit/<agent key>.json, written by the agent through .cockpit/report,
+// a script the cockpit puts there. See docs/status-file.md.
+
+/**
+ * The script agents pipe their status to. It names the file after the one thing
+ * that tells agents apart and that the cockpit can also see from outside: the
+ * container the agent runs in (Podman writes its name in /run/.containerenv, and
+ * the cockpit reads it from the terminal's `podman run --name`), else Herdr's
+ * terminal id. The agent itself never has to know either.
+ */
+export const REPORT = `#!/bin/sh
+# Written by the Herdr cockpit, and rewritten when the cockpit changes it: do not edit.
+# Usage: sh .cockpit/report <<'EOF'
+#        { "task": "...", "activity": "..." }
+#        EOF
+dir=$(dirname "$0")
+key=""
+env_file="\${COCKPIT_CONTAINERENV:-/run/.containerenv}"
+if [ -r "$env_file" ]; then
+  name=$(sed -n 's/^name="\\(.*\\)"$/\\1/p' "$env_file" | head -n 1)
+  [ -n "$name" ] && key="c-$name"
+fi
+[ -z "$key" ] && [ -n "$HC_TERMINAL_ID" ] && key="$HC_TERMINAL_ID"
+[ -n "$key" ] || key="status"
+key=$(printf %s "$key" | tr -c 'A-Za-z0-9._-' '_')
+tmp="$dir/.report.$$"
+cat > "$tmp" || exit 1
+# Stamp the time here: this clock is right, an agent's idea of the time often is not.
+flat=$(tr -d ' \\t\\r\\n' < "$tmp")
+case "$flat" in
+  "{}"|*'"updated"'*) ;;
+  "{"*) now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        sed "1s/{/{\\"updated\\":\\"$now\\",/" "$tmp" > "$tmp.s" && mv "$tmp.s" "$tmp" ;;
+esac
+mv "$tmp" "$dir/$key.json"
+# Files of containers that are long gone.
+find "$dir" -maxdepth 1 -name 'c-*.json' -mtime +7 -exec rm -f {} + 2>/dev/null
+exit 0
+`;
+
+/** The container a terminal runs, from its foreground \`podman run ... --name <name>\`, if any. */
+export function containerName(argv) {
+  if (!Array.isArray(argv) || !/(^|\/)podman$/.test(argv[0] ?? "") || !argv.includes("run")) return null;
+  for (let i = 1; i < argv.length; i++) {
+    if (argv[i] === "--name" && i + 1 < argv.length) return argv[i + 1];
+    if (String(argv[i]).startsWith("--name=")) return argv[i].slice(7);
+  }
+  return null;
+}
+
+const fileKey = (s) => String(s).replace(/[^A-Za-z0-9._-]/g, "_");
+
+/** The status file names to try for an agent, most certain first. */
+export function statusNames(agent, terms, alone) {
+  const term = terms.find((t) => t.address === agent.address);
+  const box = containerName(term?.foreground?.argv) ?? containerName(term?.argv);
+  const names = [];
+  // A container's name is new for every session, so its file can only be this agent's.
+  if (box) names.push(`c-${fileKey(box)}.json`);
+  names.push(`${localAddress(agent.address)}.json`);
+  // The script falls back to this name when it finds neither: enough for a ship with one agent.
+  if (alone) names.push("status.json");
+  return names;
+}
+
+// Folders already given the script, with the number of polls since.
+const provisioned = new Map();
+
+/** Puts .cockpit/report (and a .gitignore) in an agent's folder, and puts it back if it goes or is out of date. */
+async function provision(cwd, machine) {
+  const id = `${machine ?? ""}|${cwd}`;
+  const n = provisioned.get(id) ?? 0;
+  provisioned.set(id, n + 1);
+  if (n % 100) return; // looked at once, then every five minutes
+  try {
+    const have = machine ? await readTextFile(`${cwd}/.cockpit/report`, { on: machine }) : await readTextFile(`${cwd}/.cockpit/report`);
+    if (have === REPORT) return;
+    const write = 'mkdir -p .cockpit && printf %s "$1" > .cockpit/report && { [ -e .cockpit/.gitignore ] || echo "*" > .cockpit/.gitignore; }';
+    await exec("sh", ["-c", write, "cockpit", REPORT], machine ? { cwd, on: machine, timeout: 5000 } : { cwd, timeout: 5000 });
+  } catch {
+    provisioned.delete(id); // try again at the next poll
+  }
+}
 
 const text = (v, n) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
@@ -333,16 +415,16 @@ async function readAll() {
   const all = agents().filter((a) => !a.parent);
   const sps = spaces();
   const ps = panes();
+  const terms = terminals();
   const before = shared(STATUS_KEY) ?? {};
   const out = {};
   for (const a of all) {
     const sp = sps.find((s) => s.id === a.space);
     const cwd = ps.find((p) => p.terminal === a.address)?.cwd ?? sp?.folder;
     if (!cwd) continue;
+    await provision(cwd, sp?.machine);
     const alone = all.filter((x) => x.space === a.space).length === 1;
-    // A ship with one agent may use the plain name, so the agent need not know its terminal id.
-    const names = alone ? [`${localAddress(a.address)}.json`, "status.json"] : [`${localAddress(a.address)}.json`];
-    for (const name of names) {
+    for (const name of statusNames(a, terms, alone)) {
       const s = await read(`${cwd}/.cockpit/${name}`, sp?.machine);
       if (s) {
         out[a.address] = timed(s, before[a.address]);
