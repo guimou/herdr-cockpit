@@ -233,17 +233,54 @@ await model.pollStatus();
   writeFileSync(join(work, ".cockpit", "report"), model.REPORT);
   writeFileSync(join(work, "containerenv"), 'engine="podman-5.2"\nname="ccbox-emauria-a1"\nid="abc"\n');
   const report = (env, input) => execFileSync("sh", [".cockpit/report"], { cwd: work, input, env: { PATH: process.env.PATH, COCKPIT_CONTAINERENV: join(work, "none"), ...env } });
-  report({ COCKPIT_CONTAINERENV: join(work, "containerenv"), HC_TERMINAL_ID: "t9" }, '{\n  "task": "in a box"\n}\n');
+  // What Podman puts in a box: the file is there, but empty unless the container is privileged.
+  writeFileSync(join(work, "containerenv-empty"), "");
+  const fileOf = (name) => JSON.parse(readFileSync(join(work, ".cockpit", name), "utf8"));
+  report({ COCKPIT_CONTAINERENV: join(work, "containerenv-empty"), CODEBOX_SESSION: "ccbox-emauria-c3", HC_TERMINAL_ID: "t9" }, '{\n  "task": "in a box"\n}\n');
+  report({ COCKPIT_CONTAINERENV: join(work, "containerenv"), HC_TERMINAL_ID: "t9" }, '{"task":"in a privileged container"}');
   report({ HC_TERMINAL_ID: "t9" }, '{"task":"on the host"}');
+  report({ CODEBOX_SESSION: "ccbox-emauria-d4", HC_TERMINAL_ID: "t8" }, '{"task":"in a box that is not a Podman container"}');
+  report({ COCKPIT_CONTAINERENV: join(work, "containerenv-empty") }, '{"task":"in a container that was given no name"}');
+  const boxed = fileOf("c-ccbox-emauria-c3.json");
+  check("in a box the script names the file after the session its launcher passed, and stamps the time", boxed.task === "in a box" && Math.abs(Date.parse(boxed.updated) - Date.now()) < 60000);
+  check("without it, a privileged Podman container still gets its name from /run/.containerenv", fileOf("c-ccbox-emauria-a1.json").task === "in a privileged container");
+  check("outside a container it uses the terminal id", fileOf("t9.json").task === "on the host");
+  check("the session name is only a key under Podman, where the cockpit can see it too",
+    fileOf("t8.json").task === "in a box that is not a Podman container" && !readdirSync(join(work, ".cockpit")).includes("c-ccbox-emauria-d4.json"));
+  check("with nothing to go by it falls back to status.json", fileOf("status.json").task === "in a container that was given no name");
   report({}, "{}");
-  const boxed = JSON.parse(readFileSync(join(work, ".cockpit", "c-ccbox-emauria-a1.json"), "utf8"));
-  check("the script names the file after the container, and stamps the time", boxed.task === "in a box" && Math.abs(Date.parse(boxed.updated) - Date.now()) < 60000);
-  check("outside a container it uses the terminal id, else status.json",
-    JSON.parse(readFileSync(join(work, ".cockpit", "t9.json"), "utf8")).task === "on the host" && readFileSync(join(work, ".cockpit", "status.json"), "utf8") === "{}");
+  check("an empty status is written as it is", readFileSync(join(work, ".cockpit", "status.json"), "utf8") === "{}");
   check("the script leaves no temporary file", readdirSync(join(work, ".cockpit")).every((f) => !f.startsWith(".report")));
+}
+
+// Two boxes whose launcher passes no name: both write status.json. The cockpit shows it
+// for neither, and says so once it has seen the file written.
+world.agents = [agent("t3", "s1", "working", true), agent("t12", "s1", "working")];
+world.terminals = [
+  { address: "t3", foreground: { argv: ["podman", "run", "--name", "ccbox-emauria-e5", "img"] } },
+  { address: "t12", foreground: { argv: ["podman", "run", "--name", "ccbox-emauria-f6", "img"] } },
+];
+world.files = { "/r/emauria/.cockpit/status.json": JSON.stringify({ task: "left by a lone agent" }) };
+await model.pollStatus();
+{
+  const members = () => model.fleet().find((s) => s.id === "s1").members;
+  check("a status.json that was already there is not taken for a shared one",
+    !world.shared["cockpit.status"].t3 && !world.shared["cockpit.status"].t12 && members().every((m) => !m.file && !m.sharedAt));
+  world.files["/r/emauria/.cockpit/status.json"] = JSON.stringify({ task: "one of the two" });
+  await model.pollStatus();
+  check("a write to the shared status.json is shown for neither agent, and flagged for both",
+    !world.shared["cockpit.status"].t3 && !world.shared["cockpit.status"].t12 && members().every((m) => !m.file && m.sharedAt > 0));
+  everything();
+  world.files["/r/emauria/.cockpit/c-ccbox-emauria-e5.json"] = JSON.stringify({ task: "now with its own file" });
+  await model.pollStatus();
+  const [first, second] = members();
+  check("an agent that gets its own file is shown again, and no longer flagged", first.file?.milestone === "now with its own file" && !first.sharedAt && second.sharedAt > 0);
+  everything();
 }
 world.terminals = [];
 world.agents = [];
+world.files = {};
+await model.pollStatus();
 
 // The journal collapses to a rail by width, as Herdr's sidebar does.
 world.layout = { id: "root", children: [{ id: "work", children: [{ id: "journal", size: { px: 380 } }] }] };
