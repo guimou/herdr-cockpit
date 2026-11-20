@@ -126,7 +126,7 @@ Layouts `cockpit` and `cockpit-ambient` with the `cockpit` mod: crew rail, ship 
 
 1. Answered: see the section above. A mod can do everything the concept needs.
 2. Answered: the finer states are our extension, carried by the status file.
-3. Answered: agents pipe their status to `.cockpit/report`, a script the cockpit puts in each agent's folder. It names the file after the agent's container, which the cockpit reads from the terminal's `podman run --name`, so nothing is passed into the containers and agents never handle a terminal id. See [agent-instructions.md](agent-instructions.md).
+3. Answered: agents pipe their status to `.cockpit/report`, a script the cockpit puts in each agent's folder. It names the file after the agent's container, which the cockpit reads from the terminal's `podman run --name`, so agents never handle a terminal id. The container has to be told its name: the box launchers pass it as `CODEBOX_SESSION`, since Podman only writes it in `/run/.containerenv` for privileged containers. See [agent-instructions.md](agent-instructions.md).
 4. Answered: layout switching backs the ambient/active toggle.
 5. Whether the frame alone says enough about state, or per-state poses are worth generating.
 6. Whether host shells should also be listed on the ambient view, as a second row under the fleet strip.

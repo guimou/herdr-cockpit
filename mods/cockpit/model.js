@@ -5,6 +5,7 @@ import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, 
 import { SHIPS, CREW, RANKS, autoColor } from "./fleet.js";
 
 export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file content }
+export const SHARED_KEY = "cockpit.sharedStatus"; // { [agent address]: when the status.json it shares with others was last written }
 export const SLOTS_KEY = "cockpit.slots"; // { "1": agent address, ... }
 export const ROSTER_KEY = "cockpit.roster"; // the ships of cockpit-roster.json, or unset for the default roster
 export const ACTIVE_LAYOUT = "cockpit";
@@ -51,6 +52,7 @@ export function stateOf(agent, file) {
 export function fleet() {
   const all = agents().filter((a) => !a.parent);
   const files = shared(STATUS_KEY) ?? {};
+  const sharedFiles = shared(SHARED_KEY) ?? {};
   const ships = roster();
   return spaces().map((sp) => {
     const key = String(sp.name ?? "").toLowerCase();
@@ -71,6 +73,9 @@ export function fleet() {
       const crew = CREW[seats[i]] ?? null;
       const file = agent ? files[agent.address] ?? null : null;
       ship.members.push({
+        // Set when this agent has no status of its own while one is being written to the file
+        // it shares with the ship's other agents: the time of the last such write.
+        sharedAt: agent && !file ? sharedFiles[agent.address] ?? 0 : 0,
         key: agent?.address ?? `${sp.id}:seat${i}`,
         agent,
         ship,
@@ -269,9 +274,13 @@ export function handle(command, fromAmbient = false) {
 /**
  * The script agents pipe their status to. It names the file after the one thing
  * that tells agents apart and that the cockpit can also see from outside: the
- * container the agent runs in (Podman writes its name in /run/.containerenv, and
- * the cockpit reads it from the terminal's `podman run --name`), else Herdr's
- * terminal id. The agent itself never has to know either.
+ * container the agent runs in, else Herdr's terminal id. The agent itself never
+ * has to know either.
+ *
+ * The container's name has to be given to the container: the box launchers set it
+ * as CODEBOX_SESSION, and the cockpit reads the same name from the terminal's
+ * `podman run --name`. /run/.containerenv only carries it in a privileged Podman
+ * container, so it is a fallback, not the rule.
  */
 export const REPORT = `#!/bin/sh
 # Written by the Herdr cockpit, and rewritten when the cockpit changes it: do not edit.
@@ -280,9 +289,14 @@ export const REPORT = `#!/bin/sh
 #        EOF
 dir=$(dirname "$0")
 key=""
+# Podman puts this file in every container it starts. The cockpit only knows
+# Podman containers by name, so the name is only used as the key there.
 env_file="\${COCKPIT_CONTAINERENV:-/run/.containerenv}"
-if [ -r "$env_file" ]; then
-  name=$(sed -n 's/^name="\\(.*\\)"$/\\1/p' "$env_file" | head -n 1)
+if [ -e "$env_file" ]; then
+  # A box: its launcher passes the container's name.
+  name="$CODEBOX_SESSION"
+  # Otherwise Podman writes it in the file, for a privileged container only.
+  [ -z "$name" ] && [ -r "$env_file" ] && name=$(sed -n 's/^name="\\(.*\\)"$/\\1/p' "$env_file" | head -n 1)
   [ -n "$name" ] && key="c-$name"
 fi
 [ -z "$key" ] && [ -n "$HC_TERMINAL_ID" ] && key="$HC_TERMINAL_ID"
@@ -411,6 +425,38 @@ function timed(s, prev) {
   return { ...s, stamp, updated: same ? prev.updated : prev ? Date.now() : own };
 }
 
+// status.json of the folders where several agents may be writing it: its last content,
+// and when the cockpit saw it change.
+const sharedSeen = new Map();
+// When the cockpit first saw each agent: a write made before that is not this agent's.
+const firstSeen = new Map();
+
+/**
+ * When the status.json of a folder was last written, for a ship with several agents.
+ * Nobody can tell whose it is there, so it is never shown as a status; but a write to it
+ * means an agent is reporting without a name of its own, which the journal says. 0 when
+ * the file has not changed since the cockpit first looked: it may be left from earlier.
+ */
+async function sharedWrite(cwd, machine, cache) {
+  const id = `${machine ?? ""}|${cwd}`;
+  if (cache.has(id)) return cache.get(id);
+  let raw = null;
+  try {
+    const path = `${cwd}/.cockpit/status.json`;
+    raw = machine ? await readTextFile(path, { on: machine }) : await readTextFile(path);
+  } catch {
+    raw = null;
+  }
+  const seen = sharedSeen.get(id);
+  let at = 0;
+  if (raw != null) {
+    at = !seen ? 0 : seen.raw === raw ? seen.at : Date.now();
+    sharedSeen.set(id, { raw, at });
+  }
+  cache.set(id, at);
+  return at;
+}
+
 async function readAll() {
   const all = agents().filter((a) => !a.parent);
   const sps = spaces();
@@ -418,7 +464,11 @@ async function readAll() {
   const terms = terminals();
   const before = shared(STATUS_KEY) ?? {};
   const out = {};
+  const sharedOut = {};
+  const polled = new Map(); // one read of a folder's status.json per poll
+  for (const address of firstSeen.keys()) if (!all.some((a) => a.address === address)) firstSeen.delete(address);
   for (const a of all) {
+    if (!firstSeen.has(a.address)) firstSeen.set(a.address, Date.now());
     const sp = sps.find((s) => s.id === a.space);
     const cwd = ps.find((p) => p.terminal === a.address)?.cwd ?? sp?.folder;
     if (!cwd) continue;
@@ -431,8 +481,13 @@ async function readAll() {
         break;
       }
     }
+    if (!out[a.address] && !alone) {
+      const at = await sharedWrite(cwd, sp?.machine, polled);
+      if (at >= firstSeen.get(a.address)) sharedOut[a.address] = at;
+    }
   }
   if (JSON.stringify(out) !== JSON.stringify(shared(STATUS_KEY) ?? {})) setShared(STATUS_KEY, out);
+  if (JSON.stringify(sharedOut) !== JSON.stringify(shared(SHARED_KEY) ?? {})) setShared(SHARED_KEY, sharedOut);
 }
 
 /** "just now", "4 min ago", "2 h ago". */

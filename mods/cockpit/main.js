@@ -264,6 +264,12 @@ class Journal {
         .child(badge(m.state, 11)))
       .child(this.toggle(false)));
     const f = m.file;
+    if (!f && m.sharedAt) {
+      // Reports are arriving, but in the one file this ship's agents share.
+      return col.child(this.section("Journal", v_flex().gap(6)
+        .child(txt(`A status was written ${ago(m.sharedAt)} to the file this ship's agents share (.cockpit/status.json), so it cannot be shown: the cockpit cannot tell whose it is.`, 12, t.foreground, 500))
+        .child(txt("Each agent needs a name of its own. In a box, that is CODEBOX_SESSION: update ccbox and restart the agent. See docs/agent-instructions.md.", 12, t.muted))));
+    }
     if (!f) {
       return col.child(this.section("Journal",
         txt("This agent has not reported yet. Its task, current activity and pending question appear here once it pipes a status to .cockpit/report (see docs/agent-instructions.md).", 12, t.muted)));
