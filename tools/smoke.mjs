@@ -106,7 +106,7 @@ const narrowRail = () => {
   world.props = { role: "rail" };
   const view = new Cockpit();
   view.init(world.props, cx);
-  for (const width of [44, 60, 131]) {
+  for (const width of [44, 60, 159]) {
     view.role.resized({ width, height: 600 }, cx);
     const out = view.render(cx);
     if (!out || !out.kind) throw new Error(`rail at ${width}px: render returned nothing`);
