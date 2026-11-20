@@ -2,18 +2,12 @@
 // files agents write, and the 1-4 control groups.
 
 import { spaces, agents, panes, shared, setShared, readTextFile, run } from "herdr";
-import { SHIPS, CREW, PALETTE, RANKS } from "./fleet.js";
+import { SHIPS, CREW, RANKS, autoColor } from "./fleet.js";
 
 export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file content }
 export const SLOTS_KEY = "cockpit.slots"; // { "1": agent address, ... }
 export const ACTIVE_LAYOUT = "cockpit";
 export const AMBIENT_LAYOUT = "cockpit-ambient";
-
-export function hash(s) {
-  let h = 2166136261;
-  for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return h >>> 0;
-}
 
 /** "vps/t12" -> "t12": the address as the agent's own machine knows it. */
 export const localAddress = (address) => String(address).split("/").pop();
@@ -62,7 +56,7 @@ export function fleet() {
     const ship = {
       id: sp.id,
       name: cfg?.name ?? String(sp.name ?? "?"),
-      color: cfg?.color ?? PALETTE[hash(key) % PALETTE.length],
+      color: cfg?.color ?? autoColor(key),
       space: sp,
       members: [],
     };

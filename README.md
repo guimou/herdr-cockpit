@@ -32,7 +32,21 @@ Not built yet: the fleet picker overlay, per-state portraits, extra state sounds
 
 ### Your fleet
 
-Edit [mods/cockpit/fleet.js](mods/cockpit/fleet.js) to name ships, pick their colors and seat crew. Spaces that are not listed still appear, with their space name and an automatic color.
+Assign crew to ships with the `crew` tool (`tools/crew.mjs`; the installer links it as `crew` when `~/.local/bin` exists). A ship is a Herdr space, named as the space is.
+
+```sh
+crew                                             # show the roster
+crew assign vega school-of-sardeenz              # Vega joins the ship: captain if it had no crew, else the next seat
+crew assign vega to school-of-sardeenz as captain   # the same in words; "--as cpt|lt|ens" also works
+crew unassign vega
+crew ship school-of-sardeenz --name "School of Sardeenz" --color "#7BE0A0"
+```
+
+A crew member serves on one ship at a time, so assigning moves them. A ship named for the first time keeps the automatic color its space already had. The first agent started in a space takes the captain's seat, the second the next one.
+
+Your roster is saved in `~/.config/herdr-app/cockpit-roster.json`, outside the mod, so reinstalling keeps it. Each change rewrites the installed `mods/cockpit/roster.js`, which the mod reads. The tool needs Node 22.7 or newer.
+
+Spaces that are not in the roster still appear, with their space name and an automatic color. To recruit a new crew member, add the portrait to `mods/cockpit/crew/` and an entry to `CREW` in [mods/cockpit/fleet.js](mods/cockpit/fleet.js), then run `tools/install.sh`.
 
 ## Documentation
 
@@ -48,10 +62,10 @@ The top-level folders follow the layout Herdr uses for shared layouts and mods, 
 
 ```
 layouts/       cockpit.json (active view), cockpit-ambient.json (ambient view)
-mods/cockpit/  The mod: main.js (roles), model.js (data), ui.js (drawing), fleet.js (your roster), crew/ (portraits)
+mods/cockpit/  The mod: main.js (roles), model.js (data), ui.js (drawing), fleet.js (the crew), roster.js (default assignments), crew/ (portraits)
 keys.json      Key bindings to merge into your own
 docs/          Design documents
-tools/         install.sh, and smoke.mjs (node tools/smoke.mjs)
+tools/         install.sh, crew.mjs (assign crew to ships), and smoke.mjs (node tools/smoke.mjs)
 ```
 
 ## License
