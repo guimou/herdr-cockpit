@@ -1,0 +1,12 @@
+{
+  "id": "root",
+  "type": "column",
+  "background": "canvas",
+  "children": [
+    {
+      "id": "ambient",
+      "type": "block",
+      "content": { "mod": "cockpit", "props": { "role": "ambient" } }
+    }
+  ]
+}
