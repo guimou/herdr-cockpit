@@ -6,7 +6,8 @@
 //
 //   node tools/smoke.mjs
 
-import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -162,5 +163,23 @@ check("bind4 puts the focused agent on key 4", model.slots(model.fleet())[3].age
 model.handle("hail", true);
 check("hail goes to the hailing agent first, switching to the active view", world.ran.at(-2)[0] === "layout.switch" && world.ran.at(-1)[1].terminal === "t5");
 everything();
+
+// 5. The crew tool, against a throwaway Herdr home.
+const fakeHome = mkdtempSync(join(tmpdir(), "cockpit-home-"));
+cpSync(join(repo, "mods"), join(fakeHome, "mods"), { recursive: true });
+const crew = (...args) => execFileSync(process.execPath, [join(repo, "tools", "crew.mjs"), ...args],
+  { env: { ...process.env, HERDR_APP_HOME: fakeHome }, encoding: "utf8" });
+crew("assign", "Vega", "to", "School-of-Sardeenz", "as", "captain");
+crew("assign", "nyx", "school-of-sardeenz");
+crew("assign", "brass", "school-of-sardeenz", "--as", "cpt");
+const written = await import(pathToFileURL(join(fakeHome, "mods", "cockpit", "roster.js")).href);
+check("crew assign moves a crew member and inserts at the given rank",
+  written.SHIPS["school-of-sardeenz"].crew.join() === "brass,vega,nyx" && written.SHIPS.emauria.crew.join() === "orrin" && written.SHIPS.ccbox.crew.length === 0);
+check("a new ship keeps the automatic color its space already had",
+  written.SHIPS["school-of-sardeenz"].color === (await import(pathToFileURL(join(dir, "cockpit", "fleet.js")).href)).autoColor("school-of-sardeenz"));
+crew("unassign", "brass");
+cpSync(join(repo, "mods"), join(fakeHome, "mods"), { recursive: true }); // a reinstall puts the default roster back
+crew("sync");
+check("the roster survives a reinstall", /"school-of-sardeenz": .*\["vega","nyx"\]/.test(readFileSync(join(fakeHome, "mods", "cockpit", "roster.js"), "utf8")));
 
 console.log("\nSmoke test passed. Next: herdr-app check, then look at it in Herdr.");
