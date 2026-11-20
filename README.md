@@ -30,10 +30,13 @@ Not built yet: the fleet picker overlay, per-state portraits, extra state sounds
 | `alt-1` to `alt-4` | Jump to a crew member |
 | `ctrl-alt-1` to `ctrl-alt-4` | Bind the crew member in front of you to that number |
 | `alt-j` | Show or hide the journal panel |
+| `alt-c` | Open the crew assignment menu for the ship in front of you |
 
 ### Your fleet
 
-Assign crew to ships with the `crew` tool (`tools/crew.mjs`; the installer links it as `crew` when `~/.local/bin` exists). A ship is a Herdr space, named as the space is.
+In the app, right-click a crew member or a ship in the rail (or the ship header, or press `alt-c`) to open the crew assignment menu: click someone to bring them aboard, and use Promote or Remove on the ship's own crew.
+
+From a terminal, assign crew to ships with the `crew` tool (`tools/crew.mjs`; the installer links it as `crew` when `~/.local/bin` exists). A ship is a Herdr space, named as the space is.
 
 ```sh
 crew                                             # show the roster
@@ -45,7 +48,7 @@ crew ship school-of-sardeenz --name "School of Sardeenz" --color "#7BE0A0"
 
 A crew member serves on one ship at a time, so assigning moves them. A ship named for the first time keeps the automatic color its space already had. The first agent started in a space takes the captain's seat, the second the next one.
 
-Your roster is saved in `~/.config/herdr-app/cockpit-roster.json`, outside the mod, so reinstalling keeps it. Each change rewrites the installed `mods/cockpit/roster.js`, which the mod reads. The tool needs Node 22.7 or newer.
+Your roster is saved in `~/.config/herdr-app/cockpit-roster.json`, outside the mod, so reinstalling keeps it. The menu and the tool both write that file, and the cockpit follows it within a few seconds; `mods/cockpit/roster.js` is the roster used when the file does not exist. The tool needs Node 22.7 or newer.
 
 Spaces that are not in the roster still appear, with their space name and an automatic color. To recruit a new crew member, add the portrait to `mods/cockpit/crew/` and an entry to `CREW` in [mods/cockpit/fleet.js](mods/cockpit/fleet.js), then run `tools/install.sh`.
 

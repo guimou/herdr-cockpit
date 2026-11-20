@@ -1,11 +1,12 @@
 // Data for every role: ships (spaces), crew (agents), their state, the status
 // files agents write, and the 1-4 control groups.
 
-import { spaces, agents, panes, shared, setShared, readTextFile, run } from "herdr";
+import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, appHome, openOverlay, run } from "herdr";
 import { SHIPS, CREW, RANKS, autoColor } from "./fleet.js";
 
 export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file content }
 export const SLOTS_KEY = "cockpit.slots"; // { "1": agent address, ... }
+export const ROSTER_KEY = "cockpit.roster"; // the ships of cockpit-roster.json, or unset for the default roster
 export const ACTIVE_LAYOUT = "cockpit";
 export const AMBIENT_LAYOUT = "cockpit-ambient";
 
@@ -50,11 +51,13 @@ export function stateOf(agent, file) {
 export function fleet() {
   const all = agents().filter((a) => !a.parent);
   const files = shared(STATUS_KEY) ?? {};
+  const ships = roster();
   return spaces().map((sp) => {
     const key = String(sp.name ?? "").toLowerCase();
-    const cfg = SHIPS[key];
+    const cfg = ships[key];
     const ship = {
       id: sp.id,
+      key,
       name: cfg?.name ?? String(sp.name ?? "?"),
       color: cfg?.color ?? autoColor(key),
       space: sp,
@@ -122,6 +125,80 @@ export const slotOf = (m, groups) => {
   return i < 0 ? null : i + 1;
 };
 
+// ---------------------------------------------------------------- roster
+// Who serves where. Kept in <Herdr home>/cockpit-roster.json, the file that
+// tools/crew.mjs also reads and writes, so the tool and the in-app menu agree.
+// Without that file the roster is the default in roster.js.
+
+const rosterPath = () => `${appHome()}/cockpit-roster.json`;
+
+/** { [space name, lowercase]: { name, color, crew: [crew id, ...] } } */
+export const roster = () => shared(ROSTER_KEY) ?? SHIPS;
+
+function cleanRoster(o) {
+  if (!o || typeof o !== "object") return null;
+  const out = {};
+  for (const [key, s] of Object.entries(o)) {
+    if (!s || typeof s !== "object") continue;
+    out[key.toLowerCase()] = {
+      name: typeof s.name === "string" && s.name ? s.name : key,
+      color: /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : autoColor(key.toLowerCase()),
+      crew: Array.isArray(s.crew) ? s.crew.filter((id) => typeof id === "string") : [],
+    };
+  }
+  return out;
+}
+
+/** Picks up a roster changed outside the app (tools/crew.mjs, or a hand edit). */
+export async function pollRoster() {
+  let next = null;
+  try {
+    const raw = await readTextFile(rosterPath());
+    if (raw) next = cleanRoster(JSON.parse(raw).ships);
+  } catch {
+    return; // an unreadable file leaves the roster as it was
+  }
+  if (JSON.stringify(next) !== JSON.stringify(shared(ROSTER_KEY) ?? null)) setShared(ROSTER_KEY, next);
+}
+
+const copy = (ships) => JSON.parse(JSON.stringify(ships));
+
+/** The roster with `id` seated on `ship` at seat `at` (default: the next free one). A crew member serves on one ship, so this moves them. */
+export function withAssigned(ships, id, ship, at) {
+  const next = withUnassigned(ships, id);
+  const s = (next[ship.key] ??= { name: ship.name, color: ship.color, crew: [] });
+  s.crew.splice(Math.max(0, Math.min(at ?? s.crew.length, s.crew.length)), 0, id);
+  return next;
+}
+
+export function withUnassigned(ships, id) {
+  const next = copy(ships);
+  for (const s of Object.values(next)) s.crew = s.crew.filter((c) => c !== id);
+  return next;
+}
+
+/** Writes the roster file, then shows it. False when the file could not be written. */
+export async function saveRoster(ships) {
+  const text = `${JSON.stringify({ ships }, null, 2)}\n`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await readTextFile(rosterPath());
+      await writeTextFile(rosterPath(), text, raw ?? null);
+      setShared(ROSTER_KEY, ships);
+      return true;
+    } catch {
+      // the file changed between the read and the write: read again, once
+    }
+  }
+  return false;
+}
+
+/** The crew assignment menu for a ship: a popup at the pointer, or a dialog when opened from a key. */
+export function openAssign(ship, kind = "popup") {
+  if (!ship) return;
+  openOverlay({ mod: "cockpit", kind, width: 300, height: 460, props: { role: "assign", ship: ship.id } });
+}
+
 // ---------------------------------------------------------------- actions
 
 export function goTo(member, fromAmbient = false) {
@@ -130,9 +207,10 @@ export function goTo(member, fromAmbient = false) {
   run("agent.focus", { terminal: member.agent.address });
 }
 
-/** One key command from keys.json: crew1..4, bind1..4, hail. */
+/** One key command from keys.json: crew1..4, bind1..4, hail, assign. */
 export function handle(command, fromAmbient = false) {
   const ships = fleet();
+  if (command === "assign") return openAssign(current(ships)?.ship ?? activeShip(ships), "dialog");
   const groups = slots(ships);
   const crew = /^crew([1-4])$/.exec(command);
   if (crew) return goTo(groups[Number(crew[1]) - 1], fromAmbient);
