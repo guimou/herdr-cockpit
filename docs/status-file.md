@@ -44,7 +44,7 @@ Every field is optional.
 | `activity` | One line on what the agent is doing, at a high level. |
 | `question` | The pending question, with options and a recommendation. A plain string also works. Remove it once answered. |
 | `decisions` | Earlier decisions, oldest first. The last eight are shown. |
-| `updated` | ISO time or milliseconds since the epoch. |
+| `updated` | ISO time with its zone (`Z` means UTC) or milliseconds since the epoch. Only used for a file that was already there when the cockpit started: see below. |
 
 ## How the state is decided
 
@@ -63,3 +63,7 @@ Herdr's own report always wins for blocked and done. The file only refines what 
 | no agent in a listed seat | | asleep |
 
 An agent that waits on subagents or on CI should write that state before it goes quiet, and write a new state when it resumes. A file left at `subagents` or `ci` keeps showing that state for as long as Herdr reports the agent as idle.
+
+## "Status written ... ago"
+
+The journal shows how long ago the status was written. Agents get their own timestamp wrong often enough (typed from memory, or local time with a `Z` after it, which reads as hours ago or in the future) that the cockpit does not rely on it: once it has seen the file change, it uses the moment it saw the change, which is at most 3 seconds late. The `updated` field is only used for a file written before the cockpit started, and a time in the future is shown as "just now".

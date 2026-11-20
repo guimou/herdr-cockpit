@@ -170,6 +170,18 @@ check("an unlisted ship keeps its space name and a palette color", jukebox.name 
 check("a broken status file is ignored", jukebox.members[0].file === null && jukebox.members[0].state === "idle");
 check("a ship without agents has no crew", litemaas.members.length === 0);
 
+// The time shown is when the cockpit saw the file change, not the time the agent wrote in it.
+{
+  const first = model.fleet()[0].members[0].file.updated;
+  await model.pollStatus();
+  check("an unchanged status file keeps its time", model.fleet()[0].members[0].file.updated === first);
+  // An agent writes local time labelled as UTC: five hours off.
+  world.files["/r/emauria/.cockpit/t3.json"] = JSON.stringify({ task: "Next task", updated: Date.now() - 5 * 3600000 });
+  await model.pollStatus();
+  const f = model.fleet()[0].members[0].file;
+  check("a status seen changing is timed by the cockpit, not by the agent's clock", f.milestone === "Next task" && Date.now() - f.updated < 5000);
+}
+
 // 3. A listed ship whose crew are not running shows them asleep.
 world.agents = world.agents.filter((a) => a.space !== "s1");
 await model.pollStatus();

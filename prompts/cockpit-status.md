@@ -40,7 +40,7 @@ Rewrite the whole file each time, as valid JSON, in one command. Leave out the f
 - `state`: `"thinking"` while you investigate or plan before acting, `"subagents"` while you wait on subagents, `"ci"` while you wait on CI or another long-running job, `"blocked"` while you wait for my answer. Leave it out the rest of the time.
 - `question`: what you need from me, written so that I can answer it an hour later with no memory of the conversation: the context in one or two sentences, the options, and the one you recommend with the reason.
 - `decisions`: one short line for each decision I made or approved during this task, oldest first.
-- `updated`: the current time, from `date -u +%Y-%m-%dT%H:%M:%SZ`.
+- `updated`: the current time in UTC, exactly as printed by `date -u +%Y-%m-%dT%H:%M:%SZ`. Run the command each time; never type or estimate the time, and never put a `Z` after a local time.
 
 ### When
 
