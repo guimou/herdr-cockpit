@@ -13,6 +13,7 @@ import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOv
 import {
   fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
   roster, pollRoster, withAssigned, withUnassigned, saveRoster, openAssign,
+  COMPACT_BELOW, journalNarrow, toggleJournal,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
 import { txt, heading, badge, mark, feed, stop, MONO } from "./ui.js";
@@ -53,9 +54,7 @@ function slotKey(n, color) {
 
 // ------------------------------------------------------------------ rail
 
-// Below this width the rail has no room for text: portraits only. The same
-// width at which Herdr's Spaces panel under it goes compact.
-const COMPACT_BELOW = 160;
+// Below COMPACT_BELOW the rail has no room for text: portraits only.
 
 class Rail {
   init(_pr, cx) {
@@ -201,6 +200,31 @@ class Journal {
     return v_flex().gap(4).child(heading(title)).child(body);
   }
 
+  /** The button that collapses the journal to a rail, or opens it again. */
+  toggle(narrow) {
+    const t = theme();
+    return div().id("journal-toggle").flex_none().w(22).h(20).rounded(4).flex().items_center().justify_center()
+      .font_family(MONO).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip(narrow ? "Open the journal" : "Collapse the journal").on_mouse_down("left", stop)
+      .on_click(() => toggleJournal()).child(narrow ? "<" : ">");
+  }
+
+  /** Collapsed: who is in front of you and their state, nothing to read. A click opens the journal. */
+  rail(m) {
+    const t = theme();
+    let col = v_flex().id("cockpit-journal").size_full().bg(t.chrome).py(8).gap(8).items_center()
+      .cursor_pointer().on_click(() => toggleJournal())
+      .child(this.toggle(true));
+    if (!m) return col.tooltip("Journal");
+    const f = m.file;
+    const asks = Boolean(f?.question) && m.state === "hailing";
+    return col
+      .tooltip(`${callSign(m)} · ${LABEL[m.state] ?? m.state}${f?.milestone ? ` · ${f.milestone}` : ""}${asks ? " · decision needed" : ""}`)
+      .child(feed(m, 36, `feed-journal-${m.key}`))
+      .child(h_flex().flex_none().h(12).items_center().justify_center().child(mark(m.state, 9)))
+      .when(Boolean(f?.progress), (el) => el.child(txt(`${f.progress.done}/${f.progress.total}`, 10, t.muted, 600)));
+  }
+
   decision(m) {
     const t = theme();
     const q = m.file.question;
@@ -226,14 +250,19 @@ class Journal {
   render() {
     const t = theme();
     const m = current(fleet());
+    if (journalNarrow()) return this.rail(m);
     let col = v_flex().id("cockpit-journal").size_full().bg(t.chrome).overflow_y_scrollbar().p(12).gap(14);
-    if (!m) return col.child(heading("Journal")).child(txt("No crew member in front of you.", 12, t.muted));
-    col = col.child(h_flex().gap(10).items_center()
+    if (!m) {
+      return col.child(h_flex().items_center().child(heading("Journal").flex_1()).child(this.toggle(false)))
+        .child(txt("No crew member in front of you.", 12, t.muted));
+    }
+    col = col.child(h_flex().gap(10).items_start()
       .child(feed(m, 64, `feed-journal-${m.key}`))
       .child(v_flex().flex_1().min_w(0).gap(3)
         .child(txt(callSign(m), 16, m.ship.color, 700).truncate())
         .child(txt(m.name, 11, t.muted).truncate())
-        .child(badge(m.state, 11))));
+        .child(badge(m.state, 11)))
+      .child(this.toggle(false)));
     const f = m.file;
     if (!f) {
       return col.child(this.section("Journal",

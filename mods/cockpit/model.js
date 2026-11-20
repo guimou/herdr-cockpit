@@ -1,7 +1,7 @@
 // Data for every role: ships (spaces), crew (agents), their state, the status
 // files agents write, and the 1-4 control groups.
 
-import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, appHome, openOverlay, run } from "herdr";
+import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, appHome, openOverlay, run, layout } from "herdr";
 import { SHIPS, CREW, RANKS, autoColor } from "./fleet.js";
 
 export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file content }
@@ -199,6 +199,33 @@ export function openAssign(ship, kind = "popup") {
   openOverlay({ mod: "cockpit", kind, width: 300, height: 460, props: { role: "assign", ship: ship.id } });
 }
 
+// ---------------------------------------------------------------- journal rail
+// Like Herdr's sidebar, the journal is collapsed when it is narrow, not by a
+// flag, so dragging its edge collapses it too.
+
+export const JOURNAL_KEY = "cockpit.journal.width"; // the width to come back to
+export const COMPACT_BELOW = 160; // the width under which Herdr's own sidebar panels go compact
+const JOURNAL_RAIL = 44;
+const JOURNAL_WIDTH = 340; // as in layouts/cockpit.json
+
+function block(node, id) {
+  if (node?.id === id) return node;
+  for (const child of node?.children ?? []) {
+    const found = block(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+export const journalNarrow = () => (block(layout(), "journal")?.size?.px ?? Infinity) < COMPACT_BELOW;
+
+export function toggleJournal() {
+  const px = block(layout(), "journal")?.size?.px;
+  const narrow = journalNarrow();
+  if (!narrow && Number.isFinite(px)) setShared(JOURNAL_KEY, px);
+  run("layout.resize", { id: "journal", px: narrow ? shared(JOURNAL_KEY) ?? JOURNAL_WIDTH : JOURNAL_RAIL });
+}
+
 // ---------------------------------------------------------------- actions
 
 export function goTo(member, fromAmbient = false) {
@@ -207,9 +234,10 @@ export function goTo(member, fromAmbient = false) {
   run("agent.focus", { terminal: member.agent.address });
 }
 
-/** One key command from keys.json: crew1..4, bind1..4, hail, assign. */
+/** One key command from keys.json: crew1..4, bind1..4, hail, assign, journal. */
 export function handle(command, fromAmbient = false) {
   const ships = fleet();
+  if (command === "journal") return toggleJournal();
   if (command === "assign") return openAssign(current(ships)?.ship ?? activeShip(ships), "dialog");
   const groups = slots(ships);
   const crew = /^crew([1-4])$/.exec(command);

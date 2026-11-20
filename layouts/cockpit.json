@@ -94,7 +94,7 @@
               "id": "journal",
               "type": "block",
               "size": { "px": 340 },
-              "min": 260,
+              "min": 44,
               "max": 640,
               "content": { "mod": "cockpit", "props": { "role": "journal" } }
             },
