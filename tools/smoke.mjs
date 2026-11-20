@@ -66,7 +66,7 @@ export const h_flex = () => el("h_flex");
 export const v_flex = () => el("v_flex");
 `);
 stub("herdr", `
-export const world = { spaces: [], agents: [], panes: [], shared: {}, props: {}, files: {}, ran: [] };
+export const world = { spaces: [], agents: [], panes: [], shared: {}, props: {}, files: {}, ran: [], overlays: [] };
 export const spaces = () => world.spaces;
 export const agents = () => world.agents;
 export const panes = () => world.panes;
@@ -78,7 +78,15 @@ export const run = (name, args) => { world.ran.push([name, args]); };
 export const nextCommand = () => new Promise(() => {});
 export const setAgentOrder = (list) => { if (!Array.isArray(list)) throw new Error("setAgentOrder(list)"); };
 export const checking = () => false;
-export const readTextFile = async (path) => { if (path in world.files) return world.files[path]; throw new Error("no such file"); };
+export const readTextFile = async (path) => (path in world.files ? world.files[path] : null);
+export const writeTextFile = async (path, text, expected) => {
+  if ((world.files[path] ?? null) !== expected) throw new Error("stale");
+  world.files[path] = text;
+  return null;
+};
+export const appHome = () => "/herdr";
+export const openOverlay = (spec) => { world.overlays.push(spec); return "o1"; };
+export const closeOverlay = () => null;
 `);
 
 const { world } = await import(pathToFileURL(join(dir, "node_modules", "herdr", "index.js")).href);
@@ -106,6 +114,8 @@ const narrowRail = () => {
 };
 const everything = () => {
   for (const role of ["rail", "header", "journal", "ambient", null]) render(role);
+  for (const sp of world.spaces) render("assign", { ship: sp.id });
+  render("assign", { ship: "gone" });
   narrowRail();
   for (const p of world.panes) render("pane", { pane: p.pane, terminal: p.terminal });
   render("pane", { pane: "gone" });
@@ -176,7 +186,33 @@ model.handle("hail", true);
 check("hail goes to the hailing agent first, switching to the active view", world.ran.at(-2)[0] === "layout.switch" && world.ran.at(-1)[1].terminal === "t5");
 everything();
 
-// 5. The crew tool, against a throwaway Herdr home.
+// 5. Assigning crew in the app: the roster file is written, read back and shown.
+world.agents = [agent("t3", "s1", "idle", true)];
+{
+  const f = model.fleet();
+  const lite = f.find((s) => s.name === "litemaas");
+  check("a ship knows its roster key", lite.key === "litemaas");
+  check("saving the roster writes cockpit-roster.json", await model.saveRoster(model.withAssigned(model.roster(), "vega", lite)));
+  const saved = JSON.parse(world.files["/herdr/cockpit-roster.json"]).ships;
+  check("assigning moves the crew member and names the new ship", saved.litemaas.crew.join() === "vega" && saved.emauria.crew.join() === "orrin" && saved.litemaas.name === "litemaas");
+  await model.saveRoster(model.withAssigned(model.roster(), "nyx", model.fleet().find((s) => s.key === "litemaas")));
+  await model.saveRoster(model.withAssigned(model.roster(), "nyx", model.fleet().find((s) => s.key === "litemaas"), 0));
+  check("promoting moves a crew member up a seat", model.roster().litemaas.crew.join() === "nyx,vega");
+  check("the fleet follows the saved roster", model.fleet().find((s) => s.key === "emauria").members[0].name === "Orrin");
+  // A change made by tools/crew.mjs is picked up by the next poll.
+  world.files["/herdr/cockpit-roster.json"] = JSON.stringify({ ships: { ccbox: { name: "ccbox", color: "#F5A623", crew: ["brass", "vega"] } } });
+  await model.pollRoster();
+  check("a roster changed outside the app is picked up", model.roster().ccbox.crew.join() === "brass,vega" && !model.roster().litemaas);
+  world.overlays.length = 0;
+  model.handle("assign");
+  check("the assign key opens the menu for the ship in front", world.overlays[0]?.props.role === "assign" && world.overlays[0].props.ship === "s1" && world.overlays[0].kind === "dialog");
+  everything();
+  delete world.files["/herdr/cockpit-roster.json"];
+  await model.pollRoster();
+  check("without a roster file the default roster applies", model.roster().emauria.crew.join() === "vega,orrin");
+}
+
+// 6. The crew tool, against a throwaway Herdr home.
 const fakeHome = mkdtempSync(join(tmpdir(), "cockpit-home-"));
 cpSync(join(repo, "mods"), join(fakeHome, "mods"), { recursive: true });
 const crew = (...args) => execFileSync(process.execPath, [join(repo, "tools", "crew.mjs"), ...args],

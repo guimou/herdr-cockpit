@@ -5,11 +5,16 @@
 //   journal  active view, right: milestone, current activity, pending decision
 //   pane     active view, each pane's header: crew or HOST marker, pane buttons
 //   ambient  ambient view, whole window: four large crew cards and the fleet strip
+//   assign   a popup, opened by a right-click on a ship or crew member: who serves on this ship
 
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { props, theme, panes, run, nextCommand, setAgentOrder, checking } from "herdr";
-import { fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL } from "./model.js";
+import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOverlay } from "herdr";
+import {
+  fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
+  roster, pollRoster, withAssigned, withUnassigned, saveRoster, openAssign,
+} from "./model.js";
+import { CREW, RANKS } from "./fleet.js";
 import { txt, heading, badge, mark, feed, stop, MONO } from "./ui.js";
 
 const POLL = 3000;
@@ -17,8 +22,9 @@ const POLL = 3000;
 /** Started by the one role per layout that owns the data: status files and key commands. */
 function own(cx, fromAmbient) {
   if (checking()) return;
-  cx.timer.every(POLL, () => { pollStatus(); });
+  cx.timer.every(POLL, () => { pollStatus(); pollRoster(); });
   cx.spawn(async (cx) => {
+    await pollRoster();
     await pollStatus();
     for (;;) {
       handle(await nextCommand(), fromAmbient);
@@ -66,7 +72,7 @@ class Rail {
     if (m.agent) {
       cell = cell.cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover)).on_click(() => goTo(m));
     }
-    return cell
+    return cell.on_mouse_down("right", () => openAssign(m.ship))
       .child(feed(m, w, `feed-rail-${m.key}`))
       .child(h_flex().flex_none().h(12).items_center().justify_center().child(mark(m.state, 9)));
   }
@@ -79,8 +85,9 @@ class Rail {
       .flex().items_center().justify_center()
       .border_1().border_color(on ? ship.color : t.border).bg(on ? t.selected : "#00000000")
       .hover((s) => s.bg(on ? t.selected : t.hover))
-      .tooltip(`${ship.name}: no crew · ${tabsLine(ship)}`)
+      .tooltip(`${ship.name}: no crew · ${tabsLine(ship)} · right-click to assign crew`)
       .on_click(() => run("space.select", { id: ship.id }))
+      .on_mouse_down("right", () => openAssign(ship))
       .child(txt(String(ship.name).slice(0, 2), 12, ship.color, 700));
   }
 
@@ -112,7 +119,7 @@ class Rail {
         .tooltip(`${callSign(m)} · ${m.name}${m.program ? ` (${m.program})` : ""}`)
         .on_click(() => goTo(m));
     }
-    return row
+    return row.on_mouse_down("right", () => openAssign(m.ship))
       .child(feed(m, 48, `feed-rail-${m.key}`))
       .child(v_flex().flex_1().min_w(0).gap(2)
         .child(h_flex().gap(6).items_center()
@@ -129,8 +136,9 @@ class Rail {
     return h_flex().id(`ship-${ship.id}`).gap(8).px(8).h(30).rounded(6).items_center().cursor_pointer()
       .border_1().border_color(on ? ship.color : t.border).bg(on ? t.selected : "#00000000")
       .hover((s) => s.bg(on ? t.selected : t.hover))
-      .tooltip(`${ship.name}: no crew`)
+      .tooltip(`${ship.name}: no crew · right-click to assign crew`)
       .on_click(() => run("space.select", { id: ship.id }))
+      .on_mouse_down("right", () => openAssign(ship))
       .child(div().flex_none().w(4).h(14).bg(ship.color))
       .child(txt(ship.name, 13, ship.color, 700).flex_1().min_w(0).truncate())
       .child(txt(tabsLine(ship), 11, t.dim, 500).flex_none());
@@ -168,6 +176,7 @@ class Header {
     const ship = m?.ship ?? activeShip(ships);
     if (!ship) return div().size_full().bg(t.chrome);
     let bar = h_flex().id("cockpit-header").size_full().bg(t.chrome).items_center().gap(14).pr(14)
+      .on_mouse_down("right", () => openAssign(ship))
       .child(div().flex_none().w(6).h_full().bg(ship.color))
       .child(txt(m ? callSign(m) : ship.name, 24, ship.color, 700).flex_none());
     if (!m) return bar.child(txt(summary(ship), 13, t.muted).flex_1().min_w(0).truncate());
@@ -354,9 +363,86 @@ class Ambient {
   }
 }
 
+// ------------------------------------------------------------------ crew assignment
+
+const RANK_NAMES = ["Captain", "Lieutenant", "Ensign"];
+
+class Assign {
+  init() {
+    this.error = "";
+  }
+
+  /** Saves a changed roster; the popup stays open and redraws from it. */
+  apply(next, cx) {
+    cx.spawn(async (cx) => {
+      this.error = (await saveRoster(next)) ? "" : "Could not write cockpit-roster.json. Nothing was changed.";
+      cx.notify();
+    });
+  }
+
+  button(id, label, tip, act) {
+    const t = theme();
+    return div().id(id).flex_none().px(6).h(20).rounded(4).border_1().border_color(t.border)
+      .flex().items_center().justify_center().text_size(11).font_weight(600).text_color(t.muted)
+      .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip(tip).on_mouse_down("left", stop).on_click((_e, cx) => act(cx)).child(label);
+  }
+
+  row(id, ship, ships) {
+    const t = theme();
+    const here = ships[ship.key]?.crew ?? [];
+    const seat = here.indexOf(id);
+    const posting = Object.values(ships).find((s) => s.crew.includes(id));
+    // The thumbnail's frame is the color of the ship the crew member serves on now.
+    const face = { name: CREW[id].name, state: "idle", ship: { color: posting?.color ?? t.border },
+      portrait: CREW[id].portrait ? `mods/cockpit/crew/${CREW[id].portrait}-base.png` : null };
+    let row = h_flex().id(`assign-${id}`).gap(8).p(6).rounded(6).items_center()
+      .child(feed(face, 30, `assign-feed-${id}`));
+    if (seat >= 0) {
+      return row.bg(t.selected)
+        .child(v_flex().flex_1().min_w(0).gap(1)
+          .child(txt(CREW[id].name, 13, ship.color, 700).truncate())
+          .child(txt(RANK_NAMES[seat] ?? `Seat ${seat + 1}`, 11, t.muted)))
+        .when(seat > 0, (el) => el.child(this.button(`assign-up-${id}`, "Promote", "Move up one rank",
+          (cx) => this.apply(withAssigned(ships, id, ship, seat - 1), cx))))
+        .child(this.button(`assign-off-${id}`, "Remove", `Take ${CREW[id].name} off ${ship.name}`,
+          (cx) => this.apply(withUnassigned(ships, id), cx)));
+    }
+    return row.cursor_pointer().hover((s) => s.bg(t.hover))
+      .tooltip(posting ? `Move ${CREW[id].name} from ${posting.name} to ${ship.name}` : `Assign ${CREW[id].name} to ${ship.name}`)
+      .on_click((_e, cx) => this.apply(withAssigned(ships, id, ship), cx))
+      .child(v_flex().flex_1().min_w(0).gap(1)
+        .child(txt(CREW[id].name, 13, t.foreground, 700).truncate())
+        .child(txt(posting ? `on ${posting.name}` : "unassigned", 11, posting ? posting.color : t.dim)))
+      .child(txt(posting ? "Move here" : "Assign", 11, t.dim, 600).flex_none());
+  }
+
+  render() {
+    const t = theme();
+    const all = fleet();
+    const ship = all.find((s) => s.id === props()?.ship) ?? activeShip(all);
+    let col = v_flex().id("cockpit-assign").w_full().min_h(0).p(8).gap(4).bg(t.popover ?? t.surface);
+    if (!ship) return col.child(txt("No ship selected.", 12, t.muted));
+    const ships = roster();
+    const here = (ships[ship.key]?.crew ?? []).filter((id) => CREW[id]);
+    const others = Object.keys(CREW).filter((id) => !here.includes(id));
+    return col
+      .child(h_flex().gap(8).items_center().px(6).pt(2)
+        .child(div().flex_none().w(4).h(16).bg(ship.color))
+        .child(txt(ship.name, 15, ship.color, 700).flex_1().min_w(0).truncate())
+        .child(this.button("assign-close", "Close", "Close", () => closeOverlay(props()?.overlay))))
+      .child(div().px(6).child(heading(here.length ? "Crew of this ship" : "No crew yet")))
+      .children(here.map((id) => this.row(id, ship, ships)))
+      .when(Boolean(others.length), (el) => el
+        .child(div().px(6).pt(4).child(heading("Available")))
+        .children(others.map((id) => this.row(id, ship, ships))))
+      .when(Boolean(this.error), (el) => el.child(div().px(6).child(txt(this.error, 11, t.foreground, 600))));
+  }
+}
+
 // ------------------------------------------------------------------ the mod
 
-const ROLES = { rail: Rail, header: Header, journal: Journal, pane: PaneHead, ambient: Ambient };
+const ROLES = { rail: Rail, header: Header, journal: Journal, pane: PaneHead, ambient: Ambient, assign: Assign };
 
 export default class Cockpit extends View {
   init(p, cx) {
