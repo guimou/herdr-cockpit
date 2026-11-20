@@ -1,6 +1,6 @@
 # Herdr skinning: design brief
 
-Status: design exploration finished on 2026-11-19, nothing built yet. Next step: implementation tests (see the end of this document).
+Status: design exploration finished on 2026-11-19. A first build of the mod and layouts was written on 2026-11-20 and is not yet verified in Herdr. Code: https://github.com/guimou/herdr-cockpit
 Mockups: https://claude.ai/artifact/JnnG6dYDPEBd1Xut9aqN8j with five boards: ambient view, active view, fleet and crew, fleet picker, states legend. The states legend still shows an earlier emblem-only version; the other boards are current and use the real crew portraits.
 
 ## Context
@@ -100,12 +100,25 @@ Each step is usable on its own.
 - An agent running inside tmux within Herdr cannot report status.
 - The `hc` CLI controls agents (`hc run`, `hc send`, `hc machine add`).
 
+## What the app's own AGENTS.md confirms (read 2026-11-20)
+
+- Mods are JavaScript that describes native elements (gpui-kit). No HTML, CSS or web view. A mod can draw images, animate natively (`frames`, `loop`, `transition`), read files on this machine or a remote one, open dialogs, popups and windows, play sounds, keep shared state, and receive its own key commands from `keys.json`.
+- Herdr's agent states are working, blocked, idle and done. The finer states are ours to add.
+- Shipped layouts and mods are read-only and replaced on every start. Our own layout and mod files are separate and never touched, which satisfies the low-maintenance constraint.
+- `layout.switch {name}` switches whole-window layouts, so the two views are two layouts. This version ships `main`, `terminals` and `win98`; there is no `board` layout.
+- Sounds for done and blocked are set in `settings.json` (`sounds.done`, `sounds.blocked`). A mod can play others with `playSound(file)`.
+- Mods must be installed as real files in the Herdr home: a symlinked mod shows no images and does not reload (from the recipe of a community layout).
+
+## First build (2026-11-20)
+
+Layouts `cockpit` and `cockpit-ambient` with the `cockpit` mod: crew rail, ship header, journal panel, pane headers with the HOST marker, ambient cards and fleet strip, the eight states drawn in the portrait frame, and the bridge keys. Finer states and the journal come from the status file described in [status-file.md](status-file.md). Not built yet: the fleet picker, per-state stills, extra state sounds.
+
 ## Open questions
 
-1. Mod API. The public pages do not document it. Need to read `~/.config/herdr-app/AGENTS.md` to learn whether a mod can render custom cards, images and animation, read files, add an overlay such as the fleet picker, and play sounds on state changes.
-2. States beyond working, done and blocked are not documented. "On subagents", "on CI", "thinking" and "asleep" would be our extension.
-3. How agents publish the finer states and the journal content from inside containers. Candidate: a small status file kept up to date in the repo folder (the one thing mounted), read by Herdr on the host, and driven by the milestone skills so it stays agent-agnostic.
-4. What `layouts/board.json` does, and whether layout switching can back the ambient/active toggle.
+1. Answered: see the section above. A mod can do everything the concept needs.
+2. Answered: the finer states are our extension, carried by the status file.
+3. How agents write the status file from inside containers. The file format is defined; what remains is having the milestone skills write it, and passing `HC_TERMINAL_ID` into the containers for ships with more than one agent.
+4. Answered: layout switching backs the ambient/active toggle.
 5. Whether the frame alone says enough about state, or per-state poses are worth generating.
 6. Whether host shells should also be listed on the ambient view, as a second row under the fleet strip.
 
