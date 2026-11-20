@@ -76,5 +76,7 @@ Next:
   1. Merge the two sections of $repo/keys.json into $home/keys.json.
   2. Switch to the layout:  herdr-app do layout.switch --name cockpit
   3. Assign crew:  crew assign vega <space name>   (crew --help for the rest)
-  4. Check $home for layout.error or keys.error, and 'herdr-app status' for mod errors.
+  4. Tell your agents to report, once for all projects: add $repo/prompts/cockpit-status.md
+     to your shared CLAUDE.md or AGENTS.md (docs/agent-instructions.md).
+  5. Check $home for layout.error or keys.error, and 'herdr-app status' for mod errors.
 EOF

@@ -151,7 +151,7 @@ world.files = {
     question: { text: "Keep the old endpoint?", options: ["Keep it", "Remove it"], recommendation: "Remove it" },
     decisions: ["Use Stripe webhooks"], updated: Date.now() - 5 * 60000,
   }),
-  "/r/emauria/.cockpit/t12.json": JSON.stringify({ state: "subagents", activity: "Three reviewers running", updated: new Date().toISOString() }),
+  "/r/emauria/.cockpit/t12.json": JSON.stringify({ state: "subagents", task: "Fix the flaky login test", activity: "Three reviewers running", updated: new Date().toISOString() }),
   "/r/ccbox/.cockpit/status.json": JSON.stringify({ state: "thinking", milestone: "M1", question: "plain string question" }),
   "/r/jukebox/.cockpit/t7.json": "{ not json",
 };
@@ -164,10 +164,23 @@ check("crew take seats in terminal order (t3 before t12)", emauria.members[0].ag
 check("ranks appear only on a ship with several crew", model.callSign(emauria.members[1]) === "Emauria, Lt." && model.callSign(ccbox.members[0]) === "ccbox");
 check("blocked agent is hailing", emauria.members[0].state === "hailing");
 check("idle agent waiting on subagents is not shown idle", emauria.members[1].state === "subagents");
+check("a task is shown where a milestone would be", emauria.members[1].file.milestone === "Fix the flaky login test" && emauria.members[1].file.kind === "task" && emauria.members[0].file.kind === "milestone");
 check("a lone agent may use status.json", ccbox.members[0].state === "thinking" && ccbox.members[0].file.question.text === "plain string question");
 check("an unlisted ship keeps its space name and a palette color", jukebox.name === "agents-jukebox" && /^#/.test(jukebox.color) && jukebox.members[0].portrait === null);
 check("a broken status file is ignored", jukebox.members[0].file === null && jukebox.members[0].state === "idle");
 check("a ship without agents has no crew", litemaas.members.length === 0);
+
+// The time shown is when the cockpit saw the file change, not the time the agent wrote in it.
+{
+  const first = model.fleet()[0].members[0].file.updated;
+  await model.pollStatus();
+  check("an unchanged status file keeps its time", model.fleet()[0].members[0].file.updated === first);
+  // An agent writes local time labelled as UTC: five hours off.
+  world.files["/r/emauria/.cockpit/t3.json"] = JSON.stringify({ task: "Next task", updated: Date.now() - 5 * 3600000 });
+  await model.pollStatus();
+  const f = model.fleet()[0].members[0].file;
+  check("a status seen changing is timed by the cockpit, not by the agent's clock", f.milestone === "Next task" && Date.now() - f.updated < 5000);
+}
 
 // 3. A listed ship whose crew are not running shows them asleep.
 world.agents = world.agents.filter((a) => a.space !== "s1");

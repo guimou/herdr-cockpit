@@ -12,9 +12,11 @@ tools/install.sh
 
 This copies `mods/cockpit` and the two layouts into `~/.config/herdr-app` and runs `herdr-app check`. Then merge [keys.json](keys.json) into your own keys file and switch layout with `herdr-app do layout.switch --name cockpit`. Your other layouts are untouched; `ctrl-shift-l` cycles back.
 
+The journal and the finer states stay empty until your agents are told to report: add the prompt in [prompts/cockpit-status.md](prompts/cockpit-status.md) to your shared `CLAUDE.md` or `AGENTS.md`, once for all projects. See [docs/agent-instructions.md](docs/agent-instructions.md).
+
 ## What is in it
 
-- **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the milestone, current activity and pending decision.
+- **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the task or milestone, current activity and pending decision.
 - **Ambient view** (layout `cockpit-ambient`): up to four large crew cards and the fleet strip, for a monitor you glance at.
 - **Finer states**: hailing, working, thinking, on subagents, on CI, done, standing by, asleep. Each has its own shape and motion as well as a caption.
 - **Ships panel**: Herdr's Spaces list under the crew rail, with its heading renamed. The installer makes it as a renamed copy of the Spaces mod you have; run `tools/install.sh` again after a Herdr update to refresh the copy.
@@ -58,7 +60,8 @@ Spaces that are not in the roster still appear, with their space name and an aut
 | --- | --- |
 | [docs/design-brief.md](docs/design-brief.md) | Problems to solve, constraints, the fleet-and-crew concept, views, controls, build order and open questions. |
 | [docs/crew-style-guide.md](docs/crew-style-guide.md) | Portrait rules, ship colors, file naming, generation prompts and the template for recruiting a new crew member. |
-| [docs/status-file.md](docs/status-file.md) | The file each agent writes so the cockpit can show finer states and the journal. |
+| [docs/agent-instructions.md](docs/agent-instructions.md) | Configuring your agents, once for all projects, so they report to the cockpit. |
+| [docs/status-file.md](docs/status-file.md) | The format of the file each agent writes so the cockpit can show finer states and the journal. |
 
 ## Repository layout
 
@@ -68,6 +71,7 @@ The top-level folders follow the layout Herdr uses for shared layouts and mods, 
 layouts/       cockpit.json (active view), cockpit-ambient.json (ambient view)
 mods/cockpit/  The mod: main.js (roles), model.js (data), ui.js (drawing), fleet.js (the crew), roster.js (default assignments), crew/ (portraits)
 keys.json      Key bindings to merge into your own
+prompts/       cockpit-status.md, the instructions to add to your shared CLAUDE.md or AGENTS.md
 docs/          Design documents
 tools/         install.sh, crew.mjs (assign crew to ships), and smoke.mjs (node tools/smoke.mjs)
 ```

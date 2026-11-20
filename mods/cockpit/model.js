@@ -253,7 +253,9 @@ function clean(o) {
   const p = o.progress;
   return {
     state: text(o.state, 20).toLowerCase(),
-    milestone: text(o.milestone, 120),
+    // `task` is the general name; `milestone` is kept for the milestone methodology.
+    milestone: text(o.milestone, 120) || text(o.task, 120),
+    kind: text(o.milestone, 120) ? "milestone" : "task",
     activity: text(o.activity, 200),
     question: question?.text ? question : null,
     decisions: Array.isArray(o.decisions) ? o.decisions.slice(-8).map((x) => text(x, 200)).filter(Boolean) : [],
@@ -285,10 +287,25 @@ export async function pollStatus() {
   }
 }
 
+/**
+ * Decides when a status was written. The agent's own `updated` is often wrong: typed
+ * from memory, or local time labelled as UTC. So once the cockpit has watched the file
+ * change, the moment it saw the change is used. The agent's time only serves for a file
+ * that was already there when the cockpit started.
+ */
+function timed(s, prev) {
+  const stamp = s.updated;
+  const same = prev && JSON.stringify({ ...prev, updated: 0, stamp: 0 }) === JSON.stringify({ ...s, updated: 0, stamp: 0 }) && prev.stamp === stamp;
+  // A time in the future can only be a wrong clock or a wrong zone.
+  const own = Math.min(stamp, Date.now());
+  return { ...s, stamp, updated: same ? prev.updated : prev ? Date.now() : own };
+}
+
 async function readAll() {
   const all = agents().filter((a) => !a.parent);
   const sps = spaces();
   const ps = panes();
+  const before = shared(STATUS_KEY) ?? {};
   const out = {};
   for (const a of all) {
     const sp = sps.find((s) => s.id === a.space);
@@ -300,7 +317,7 @@ async function readAll() {
     for (const name of names) {
       const s = await read(`${cwd}/.cockpit/${name}`, sp?.machine);
       if (s) {
-        out[a.address] = s;
+        out[a.address] = timed(s, before[a.address]);
         break;
       }
     }
