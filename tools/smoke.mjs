@@ -92,8 +92,20 @@ const render = (role, extra = {}) => {
   const out = view.render(cx);
   if (!out || !out.kind) throw new Error(`${role ?? "all"}: render returned nothing`);
 };
+// The rail as it draws with the sidebar collapsed (44 px) or dragged narrow.
+const narrowRail = () => {
+  world.props = { role: "rail" };
+  const view = new Cockpit();
+  view.init(world.props, cx);
+  for (const width of [44, 60, 131]) {
+    view.role.resized({ width, height: 600 }, cx);
+    const out = view.render(cx);
+    if (!out || !out.kind) throw new Error(`rail at ${width}px: render returned nothing`);
+  }
+};
 const everything = () => {
   for (const role of ["rail", "header", "journal", "ambient", null]) render(role);
+  narrowRail();
   for (const p of world.panes) render("pane", { pane: p.pane, terminal: p.terminal });
   render("pane", { pane: "gone" });
 };

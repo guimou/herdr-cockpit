@@ -9,7 +9,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, theme, panes, run, nextCommand, setAgentOrder, checking } from "herdr";
-import { fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago } from "./model.js";
+import { fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL } from "./model.js";
 import { txt, heading, badge, mark, feed, stop, MONO } from "./ui.js";
 
 const POLL = 3000;
@@ -47,8 +47,60 @@ function slotKey(n, color) {
 
 // ------------------------------------------------------------------ rail
 
+// Below this width the rail has no room for text: portraits only.
+const COMPACT_BELOW = 132;
+
 class Rail {
-  init(_pr, cx) { own(cx, false); }
+  init(_pr, cx) {
+    this.width = 268; // the sidebar's width in layouts/cockpit.json, until the first size report
+    own(cx, false);
+  }
+
+  /** Collapsed sidebar: the portrait alone, as wide as the rail allows, with the state mark under it. */
+  compactMember(m, w) {
+    const t = theme();
+    const here = Boolean(m.agent?.focused);
+    let cell = v_flex().id(`crew-${m.key}`).flex_none().items_center().gap(3).px(2).py(3).rounded(5)
+      .bg(here ? t.selected : "#00000000")
+      .tooltip(`${callSign(m)} · ${m.name}${m.program ? ` (${m.program})` : ""} · ${LABEL[m.state] ?? m.state}`);
+    if (m.agent) {
+      cell = cell.cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover)).on_click(() => goTo(m));
+    }
+    return cell
+      .child(feed(m, w, `feed-rail-${m.key}`))
+      .child(h_flex().flex_none().h(12).items_center().justify_center().child(mark(m.state, 9)));
+  }
+
+  /** Collapsed sidebar: a ship without crew as a tile in its color, with the start of its name. */
+  compactCrewless(ship, w) {
+    const t = theme();
+    const on = ship.space.active;
+    return div().id(`ship-${ship.id}`).flex_none().w(w).h(26).rounded(5).cursor_pointer()
+      .flex().items_center().justify_center()
+      .border_1().border_color(on ? ship.color : t.border).bg(on ? t.selected : "#00000000")
+      .hover((s) => s.bg(on ? t.selected : t.hover))
+      .tooltip(`${ship.name}: no crew · ${tabsLine(ship)}`)
+      .on_click(() => run("space.select", { id: ship.id }))
+      .child(txt(String(ship.name).slice(0, 2), 12, ship.color, 700));
+  }
+
+  compact(crewed, empty) {
+    const t = theme();
+    const pad = 2; // each portrait cell adds 2 more, which is where the selection shows
+    const w = Math.max(24, Math.min(48, Math.floor(this.width) - 4 * pad));
+    return v_flex().id("cockpit-rail").size_full().bg(t.chrome).overflow_y_scrollbar().py(8).px(pad).gap(4).items_center()
+      .on_size_change((size, cx) => this.resized(size, cx))
+      .children(crewed.flatMap((s) => s.members.map((m) => this.compactMember(m, w))))
+      .when(Boolean(crewed.length && empty.length), (el) => el
+        .child(div().flex_none().w(Math.round(w * 0.6)).h(1).bg(t.border)))
+      .children(empty.map((s) => this.compactCrewless(s, w)));
+  }
+
+  resized(size, cx) {
+    if (size.width === this.width) return;
+    this.width = size.width;
+    cx.notify();
+  }
 
   member(m, groups) {
     const t = theme();
@@ -91,7 +143,9 @@ class Rail {
     const crewed = ships.filter((s) => s.members.length);
     const empty = ships.filter((s) => !s.members.length);
     setAgentOrder(crewed.flatMap((s) => s.members.filter((m) => m.agent).map((m) => m.agent.address)));
+    if (this.width < COMPACT_BELOW) return this.compact(crewed, empty);
     return v_flex().id("cockpit-rail").size_full().bg(t.chrome).overflow_y_scrollbar().p(8).gap(4)
+      .on_size_change((size, cx) => this.resized(size, cx))
       .child(heading("Crew"))
       .when(!crewed.length, (el) => el.child(txt("No agents running.", 12, t.muted)))
       .children(crewed.flatMap((s) => s.members.map((m) => this.member(m, groups))))

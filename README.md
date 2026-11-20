@@ -14,7 +14,7 @@ This copies `mods/cockpit` and the two layouts into `~/.config/herdr-app` and ru
 
 ## What is in it
 
-- **Active view** (layout `cockpit`): crew rail on the left, a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the milestone, current activity and pending decision.
+- **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the milestone, current activity and pending decision.
 - **Ambient view** (layout `cockpit-ambient`): up to four large crew cards and the fleet strip, for a monitor you glance at.
 - **Finer states**: hailing, working, thinking, on subagents, on CI, done, standing by, asleep. Each has its own shape and motion as well as a caption.
 
