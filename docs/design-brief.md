@@ -1,6 +1,6 @@
 # Herdr skinning: design brief
 
-Status: design exploration finished on 2026-11-19. A first build of the mod and layouts was written on 2026-11-20 and is not yet verified in Herdr. Code: https://github.com/guimou/herdr-cockpit
+Status: design exploration finished on 2026-11-19. A first build of the mod and layouts was written on 2026-11-20 and runs in Herdr. Code: https://github.com/guimou/herdr-cockpit
 Mockups: https://claude.ai/artifact/JnnG6dYDPEBd1Xut9aqN8j with five boards: ambient view, active view, fleet and crew, fleet picker, states legend. The states legend still shows an earlier emblem-only version; the other boards are current and use the real crew portraits.
 
 ## Context
@@ -120,7 +120,9 @@ Herdr is open source (Apache 2.0). `defaults/` holds the shipped mods, layouts, 
 
 ## First build (2026-11-20)
 
-Layouts `cockpit` and `cockpit-ambient` with the `cockpit` mod: crew rail, ship header, journal panel, pane headers with the HOST marker, ambient cards and fleet strip, the eight states drawn in the portrait frame, and the bridge keys. Finer states and the journal come from the status file described in [status-file.md](status-file.md). Not built yet: the fleet picker, per-state stills, extra state sounds.
+Layouts `cockpit` and `cockpit-ambient` with the `cockpit` mod: crew rail, ship header, journal panel, pane headers with the HOST marker, ambient cards and fleet strip, the eight states drawn in the portrait frame, and the bridge keys. Finer states and the journal come from the status file described in [status-file.md](status-file.md). Not built yet: the fleet picker, extra state sounds.
+
+Added the same day: the code for per-state stills (a portrait named `<id>-<state>.png` replaces the base one in that state, with a glitch cut on every state change), and the activity line or pending question typed out when it changes. The stills themselves are not generated yet.
 
 ## Open questions
 

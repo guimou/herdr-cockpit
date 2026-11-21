@@ -29,8 +29,10 @@ The four first-batch source images (wide shots, 16:9) are kept in the Claude pro
 
 ## File naming
 
-`<name>-<state>.jpg` or `.png`, lowercase. States: `base`, `working`, `thinking`, `hailing`, `drones`, `ci`, `done`, `asleep`.
-Example: `vega-base.jpg`, `vega-hailing.jpg`.
+`<id>-<state>.png`, lowercase, in `mods/cockpit/crew/`. `<id>` is the crew member's `portrait` in `fleet.js`. States: `base`, `working`, `thinking`, `hailing`, `subagents`, `ci`, `done`, `asleep`.
+Example: `vega-base.png`, `vega-hailing.png`.
+
+Only `base` is required. The mod shows a state's portrait when its file exists and the base one otherwise (standing by always shows the base), so variants can be added one at a time. Same size and crop as the base, or the face jumps at the cut. Run `tools/install.sh` after adding files; the mod notices new ones within a minute.
 
 ## Ship colors
 
@@ -82,26 +84,52 @@ Character: an alien captain with an angular, narrow face, pale lavender skin, a 
 
 ## State variants
 
-Once a base portrait is approved, stay in the same chat so the model keeps the reference, and send:
+The reference is the base portrait itself, not the chat it came from. Open a new chat for each crew member, attach `mods/cockpit/crew/<id>-base.png`, and send:
 
 ```
-Same character, same outfit, same framing, same lighting and background as the image above. Change only the pose and expression:
+This image is the reference: a photorealistic still of a character on a starship bridge. Generate a new image of exactly the same character: same face, same skin, same hair, same outfit, same lighting, same out-of-focus background, same tight head-and-shoulders framing, same 4:5 portrait format.
+Change only the expression and the direction of the head and eyes:
 [one line from the list below]
+Keep every detail of the reference that is not the expression: the rank bars on the collar (same number, same side, same color), the trim and seams of the outfit, any equipment on the shoulders or chest, scars, skin markings, ridges, quills, antennas and lens glow. If the head turns, these stay where they are on the reference.
+Keep the head the same size and in the same place in the frame. Do not zoom out, do not show the chest or the hands. No insignia, badges, emblems or logos anywhere. No text, no frame, no watermark.
 ```
 
-- Working: looking down at a console just below the frame, concentrated.
-- Thinking: gaze up and to the side, hand near the chin.
-- Hailing: looking straight at the viewer, leaning in, about to speak.
-- Drones (on subagents): looking up and slightly aside, watching something overhead.
-- CI: glancing sideways at an off-screen display, waiting.
-- Done: leaning back, relaxed, satisfied.
-- Asleep: eyes closed, head tilted, bridge lights dimmed.
+- Working: head clearly lowered, eyes down on a console just below the frame, concentrated.
+- Thinking: eyes turned far up and to one side, away from the camera, brow furrowed, lips pressed together.
+- Hailing: looking straight into the camera, eyebrows raised, mouth slightly open, about to speak.
+- Subagents: chin clearly raised, head tilted back a little, eyes following something overhead and to one side.
+- CI: head turned a quarter to one side, eyes fixed on a display off-screen, waiting.
+- Done: looking into the camera, relaxed, a satisfied smile.
+- Asleep: eyes closed, head tilted slightly to one side.
+
+For a robot or a character without a readable face, describe the same intent through the head angle, the lens or the eyes (a dimmed or shuttered lens for asleep, a brighter one for hailing).
+
+Attach the base with every request, including in a chat that already has it: otherwise the model works from its own last image, and the small changes add up from pose to pose. One chat per crew member is fine as long as each request carries the base; start a new chat if a pose leaks into the next one. Generate "asleep" last, since it changes the lighting. The poses only move the face, because the frame is a tight bust: a hand or a lean makes the model zoom out, and then the head jumps when the picture is swapped.
+
+### What the first set taught us (Vega, 2026-11-20)
+
+- The face, hair, scar, framing and background held across all seven poses, with the base attached to every request.
+- Small outfit details did not: the rank bars disappeared in four poses out of seven. Hence the "keep every detail" paragraph. Name the character's own details in it when they are unusual.
+- Poses asked for with "slightly" came out close to the base (thinking, subagents, CI). The lines above now ask for more; an exaggerated request comes back moderate.
+- "The lighting dimmer" for asleep was ignored, and is not needed: the mod dims an asleep portrait itself.
+- Compare each result with the base before going on: same head size and place, same details. A result that is off is cheaper to ask again at once than to notice at the end.
+
+### Saving the results
+
+Gemini only downloads JPG, 928 x 1152, a little wider than 4:5. Save each one as `mods/cockpit/crew/<id>-<state>.jpg`, then convert them to PNG at the base's size (400 x 500) and set the originals aside:
+
+```sh
+cd mods/cockpit/crew && mkdir -p ../../../logs/crew-originals
+for f in *.jpg; do
+  ffmpeg -v error -y -i "$f" -vf "crop=ih*4/5:ih,scale=400:500:flags=lanczos" -pix_fmt rgb24 "${f%.jpg}.png" && mv "$f" ../../../logs/crew-originals/
+done
+```
 
 ## Recruiting a new crew member
 
 1. Pick the ship's accent color (reuse it for every crew member of that ship).
 2. Write a character block: species (human, alien or robot), two or three distinctive visual traits, outfit, rank bars (two for a captain, one for a lieutenant), accent color, default expression.
-3. Generate the base portrait, then the "hailing" variant first to check the face stays consistent.
+3. Generate the base portrait, save it as `<id>-base.png`, then generate the "hailing" variant from it first to check the face stays consistent.
 4. Generate the remaining states and save them with the naming above.
 
 Names, species and looks of the four characters above can be changed freely.

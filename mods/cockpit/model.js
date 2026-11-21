@@ -8,6 +8,7 @@ export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file co
 export const SHARED_KEY = "cockpit.sharedStatus"; // { [agent address]: when the status.json it shares with others was last written }
 export const SLOTS_KEY = "cockpit.slots"; // { "1": agent address, ... }
 export const ROSTER_KEY = "cockpit.roster"; // the ships of cockpit-roster.json, or unset for the default roster
+export const POSES_KEY = "cockpit.poses"; // { [portrait stem]: [the states that have a portrait of their own] }
 export const ACTIVE_LAYOUT = "cockpit";
 export const AMBIENT_LAYOUT = "cockpit-ambient";
 
@@ -54,6 +55,7 @@ export function fleet() {
   const files = shared(STATUS_KEY) ?? {};
   const sharedFiles = shared(SHARED_KEY) ?? {};
   const ships = roster();
+  const poses = shared(POSES_KEY) ?? {};
   return spaces().map((sp) => {
     const key = String(sp.name ?? "").toLowerCase();
     const cfg = ships[key];
@@ -72,6 +74,9 @@ export function fleet() {
       const agent = live[i] ?? null;
       const crew = CREW[seats[i]] ?? null;
       const file = agent ? files[agent.address] ?? null : null;
+      const state = stateOf(agent, file);
+      // The portrait of this state when the crew member has one, the base portrait otherwise.
+      const pose = poses[crew?.portrait]?.includes(state) ? state : "base";
       ship.members.push({
         // Set when this agent has no status of its own while one is being written to the file
         // it shares with the ship's other agents: the time of the last such write.
@@ -81,10 +86,10 @@ export function fleet() {
         ship,
         name: crew?.name ?? agent?.program?.name ?? "Crew",
         program: agent?.program?.name ?? "",
-        portrait: crew?.portrait ? `mods/cockpit/crew/${crew.portrait}-base.png` : null,
+        portrait: crew?.portrait ? `mods/cockpit/crew/${crew.portrait}-${pose}.png` : null,
         rank: n > 1 ? RANKS[i] ?? "" : "",
         file,
-        state: stateOf(agent, file),
+        state,
       });
     }
     return ship;
@@ -152,6 +157,25 @@ function cleanRoster(o) {
     };
   }
   return out;
+}
+
+/**
+ * Lists the portraits in crew/, so that `<stem>-<state>.png` is shown for that state as
+ * soon as the file is there. Looked at once, then every minute.
+ */
+let posePolls = 0;
+export async function pollPoses() {
+  if (posePolls++ % 20) return;
+  try {
+    const { stdout } = await exec("ls", ["mods/cockpit/crew"], { cwd: appHome(), timeout: 5000 });
+    const out = {};
+    for (const [, stem, state] of String(stdout ?? "").matchAll(/^(.+)-([a-z]+)\.png$/gm)) {
+      if (STATES.includes(state)) (out[stem] ??= []).push(state);
+    }
+    if (JSON.stringify(out) !== JSON.stringify(shared(POSES_KEY) ?? {})) setShared(POSES_KEY, out);
+  } catch {
+    posePolls = 0; // try again at the next poll
+  }
 }
 
 /** Picks up a roster changed outside the app (tools/crew.mjs, or a hand edit). */

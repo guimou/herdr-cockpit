@@ -11,10 +11,49 @@ export const MONO = "JetBrains Mono"; // ships with Herdr
 const SIGNAL = "#ffffff";
 const FEED_BG = "#05080d";
 
+// What each portrait and spoken line last showed, and when that changed. A change is
+// drawn differently for a moment: the feed glitches, the line is typed out.
+const seen = new Map();
+let settleAt = 0;
+// Herdr refuses to draw a view holding an animation faster than 100 ms ("This view
+// cannot be rendered"), so no frame time or loop period here goes below that.
+const GLITCH = 400;
+const TYPE = 100; // ms per typed frame
+
+/** True for `ms` after the value drawn under `id` changes. Not the first time it is drawn. */
+export function fresh(id, value, ms) {
+  const now = Date.now();
+  let was = seen.get(id);
+  if (!was || was.value !== value) seen.set(id, (was = { value, at: was ? now : 0 }));
+  const until = was.at + ms;
+  if (now >= until) return false;
+  settleAt = Math.max(settleAt, until);
+  return true;
+}
+
+/** When the last change stops being fresh: a view that drew it must draw again after that. */
+export const settleDue = () => settleAt;
+
 export const stop = (_e, cx) => cx.stop_propagation();
 
 export const txt = (s, size = 13, color = null, weight = 500) =>
   div().text_size(size).font_weight(weight).text_color(color ?? theme().foreground).child(String(s ?? ""));
+
+/**
+ * A line the crew member says. When it changes it is typed out, then stays still.
+ * `id` names the place it is drawn in.
+ */
+export function say(id, s, size = 13, color = null, weight = 500) {
+  const line = String(s ?? "");
+  const step = Math.max(2, Math.ceil(line.length / 15)); // at most 15 frames, 1.5 s
+  const typing = Math.ceil(line.length / step) * TYPE;
+  if (!fresh(id, line, typing)) return txt(line, size, color, weight);
+  const frames = [];
+  for (let n = step; n < line.length; n += step) frames.push(`${line.slice(0, n)}_`);
+  // Frames loop: hold the whole line until the view draws again and makes it still.
+  for (let k = 0; k < 10; k++) frames.push(line);
+  return div().text_size(size).font_weight(weight).text_color(color ?? theme().foreground).frames(frames, TYPE);
+}
 
 /** Small spaced capitals for section headings. */
 export const heading = (s) => txt(String(s).toUpperCase(), 10, theme().dim, 700);
@@ -102,6 +141,16 @@ export function feed(member, w, id) {
     // the whole frame blinks white
     screen = screen.child(div().absolute().left(0).top(0).w(iw).h(ih).border_2().border_color(SIGNAL)
       .loop("opacity", { from: 0.1, to: 1, period: 520 }));
+  }
+
+  // A signal-glitch cut when the state, and with it the picture, changes.
+  if (fresh(id, state, GLITCH)) {
+    for (const [y, h, period] of [[0.16, 0.07, 100], [0.47, 0.12, 140], [0.78, 0.05, 120]]) {
+      const shift = Math.max(2, Math.round(iw * 0.12));
+      screen = screen.child(div().absolute().left(0).top(Math.round(ih * y)).w(iw).h(Math.max(2, Math.round(ih * h))).bg("#ffffff59")
+        .loop("left", { from: -shift, to: shift, period })
+        .loop("opacity", { from: 0.1, to: 0.9, period: Math.round(period * 1.5) }));
+    }
   }
 
   const frame = state === "hailing" ? SIGNAL : asleep ? t.border : member.ship.color;
