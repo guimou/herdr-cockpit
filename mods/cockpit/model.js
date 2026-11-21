@@ -1,5 +1,5 @@
 // Data for every role: ships (spaces), crew (agents), their state, the status
-// files agents write, and the 1-4 control groups.
+// files agents write, and the 1-8 control groups.
 
 import { spaces, agents, panes, shared, setShared, readTextFile, writeTextFile, appHome, openOverlay, run, layout, terminals, exec } from "herdr";
 import { SHIPS, CREW, RANKS, autoColor } from "./fleet.js";
@@ -110,13 +110,15 @@ export function current(ships) {
 
 export const activeShip = (ships) => ships.find((s) => s.space.active) ?? null;
 
-/** Control groups 1-4: explicit bindings first, then the remaining crew in fleet order. */
+export const PER_PAGE = 8; // two rows of four on the ambient view, and as many control groups
+
+/** Control groups 1-8: explicit bindings first, then the remaining crew in fleet order. */
 export function slots(ships) {
   const awake = ships.flatMap((s) => s.members.filter((m) => m.agent));
   const bound = shared(SLOTS_KEY) ?? {};
-  const out = [null, null, null, null];
+  const out = Array(PER_PAGE).fill(null);
   const used = new Set();
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < out.length; i++) {
     const m = awake.find((x) => x.agent.address === bound[String(i + 1)]);
     if (m && !used.has(m.key)) {
       out[i] = m;
@@ -131,6 +133,20 @@ export function slots(ships) {
     used.add(m.key);
   }
   return out;
+}
+
+/** Every running agent, in the order the ambient view shows them: control groups 1-8, then the rest in fleet order. */
+export function muster(ships) {
+  const first = slots(ships).filter(Boolean);
+  const keyed = new Set(first.map((m) => m.key));
+  return first.concat(ships.flatMap((s) => s.members.filter((m) => m.agent && !keyed.has(m.key))));
+}
+
+/** The ambient view's pages: at most eight crew each, spread evenly (nine is 5 + 4, not 8 + 1). */
+export function pages(list) {
+  const n = Math.ceil(list.length / PER_PAGE) || 1;
+  const per = Math.ceil(list.length / n);
+  return Array.from({ length: n }, (_, i) => list.slice(i * per, (i + 1) * per));
 }
 
 export const slotOf = (m, groups) => {
@@ -270,6 +286,25 @@ export function toggleJournal() {
   run("layout.resize", { id: "journal", px: narrow ? shared(JOURNAL_KEY) ?? JOURNAL_WIDTH : JOURNAL_RAIL });
 }
 
+// ---------------------------------------------------------------- folding the sidebar panels
+// The Crew and Ships panels fold down to their header. Like the journal, a panel is
+// folded when its block is that small, not by a flag.
+
+export const FOLDED = 31; // a header's height, the Ships panel's (Herdr's Spaces mod)
+const UNFOLDED = { rail: { weight: 3 }, spaces: { weight: 2 } }; // as in layouts/cockpit.json
+const foldKey = (id) => `cockpit.fold.${id}`; // the size to come back to
+
+// tools/install.sh writes the same limit into the Ships panel's fold button.
+export const folded = (id) => (block(layout(), id)?.size?.px ?? Infinity) <= 40;
+
+export function toggleFold(id) {
+  if (folded(id)) return run("layout.resize", { id, ...(shared(foldKey(id)) ?? UNFOLDED[id]) });
+  const { px, weight } = block(layout(), id)?.size ?? {};
+  if (Number.isFinite(px)) setShared(foldKey(id), { px });
+  else if (Number.isFinite(weight)) setShared(foldKey(id), { weight });
+  run("layout.resize", { id, px: FOLDED });
+}
+
 // ---------------------------------------------------------------- actions
 
 export function goTo(member, fromAmbient = false) {
@@ -278,15 +313,17 @@ export function goTo(member, fromAmbient = false) {
   run("agent.focus", { terminal: member.agent.address });
 }
 
-/** One key command from keys.json: crew1..4, bind1..4, hail, assign, journal. */
+/** One key command from keys.json: crew1..8, bind1..8, hail, assign, journal, foldcrew, foldships. */
 export function handle(command, fromAmbient = false) {
   const ships = fleet();
   if (command === "journal") return toggleJournal();
+  if (command === "foldcrew") return toggleFold("rail");
+  if (command === "foldships") return toggleFold("spaces"); // sent by the Ships panel's fold button
   if (command === "assign") return openAssign(current(ships)?.ship ?? activeShip(ships), "dialog");
   const groups = slots(ships);
-  const crew = /^crew([1-4])$/.exec(command);
+  const crew = /^crew([1-8])$/.exec(command);
   if (crew) return goTo(groups[Number(crew[1]) - 1], fromAmbient);
-  const bind = /^bind([1-4])$/.exec(command);
+  const bind = /^bind([1-8])$/.exec(command);
   if (bind) {
     const m = current(ships);
     if (!m) return;

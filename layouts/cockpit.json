@@ -27,14 +27,14 @@
           "id": "rail",
           "type": "block",
           "size": { "weight": 3 },
-          "min": 120,
+          "min": 31,
           "content": { "mod": "cockpit", "props": { "role": "rail" } }
         },
         {
           "id": "spaces",
           "type": "block",
           "size": { "weight": 2 },
-          "min": 90,
+          "min": 31,
           "content": { "mod": "spaces" }
         },
         {

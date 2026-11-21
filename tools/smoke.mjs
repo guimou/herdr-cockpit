@@ -250,6 +250,56 @@ model.handle("hail", true);
 check("hail goes to the hailing agent first, switching to the active view", world.ran.at(-2)[0] === "layout.switch" && world.ran.at(-1)[1].terminal === "t5");
 everything();
 
+// The ambient view takes any number of crew: one row to four, two rows to eight, then pages.
+{
+  const crowd = (n) => { world.agents = Array.from({ length: n }, (_, i) => agent(`t${i + 1}`, `s${(i % 4) + 1}`, i === 9 ? "blocked" : "working")); };
+  const sizes = () => model.pages(model.muster(model.fleet())).map((p) => p.length).join();
+  crowd(11);
+  const all = model.muster(model.fleet());
+  check("the ambient view lists every agent once, control groups first",
+    all.length === 11 && new Set(all.map((m) => m.key)).size === 11 && all[3].agent.address === "t3");
+  check("more than eight crew are spread over pages", sizes() === "6,5");
+  world.props = { role: "ambient" };
+  const view = new Cockpit();
+  view.init(world.props, cx);
+  for (const n of [1, 4, 5, 7, 8, 9, 11, 17]) {
+    crowd(n);
+    for (const [width, height] of [[1600, 900], [3840, 2160], [640, 360]]) {
+      Object.assign(view.role, { width, height });
+      // Cards measured with little or no room for the portrait must still draw.
+      view.role.room = new Map(n % 2 ? [["t1", { w: 0, h: 0 }], ["t2", { w: 500, h: 90 }]] : []);
+      for (view.role.page = 0; view.role.page < 3; view.role.page++) {
+        if (!view.render(cx)?.kind) throw new Error(`ambient with ${n} crew: render returned nothing`);
+      }
+    }
+  }
+  check("the ambient view draws 1 to 17 crew at any window size, on every page", view.role.pages === 3 && sizes() === "6,6,5");
+  // The page switches: on holds a page, off lets the pages turn again.
+  const realCx = cx.timer.every;
+  let turn;
+  cx.timer.every = (ms, fn) => { if (ms === 10_000) turn = fn; return { cancel() {} }; };
+  const amb = new Cockpit();
+  amb.init(world.props, cx);
+  cx.timer.every = realCx;
+  amb.render(cx);
+  turn(cx); turn(cx);
+  check("with every switch off the pages turn", amb.role.page === 2);
+  amb.role.pinned = 0; amb.role.page = 0;
+  turn(cx);
+  amb.render(cx);
+  check("a switch that is on holds its page", amb.role.page === 0 && amb.role.pinned === 0);
+  amb.role.pinned = 2; amb.role.page = 2;
+  crowd(8);
+  amb.render(cx);
+  check("a held page that no longer exists lets go", amb.role.pinned === null && amb.role.pages === 1);
+  check("eight crew still fit one page", sizes() === "8");
+  world.ran.length = 0;
+  model.handle("crew8");
+  check("crew8 jumps to the eighth control group", world.ran.at(-1)[0] === "agent.focus" && model.slots(model.fleet()).filter(Boolean).length === 8);
+  world.agents = [];
+  check("no crew is one empty page", sizes() === "0");
+}
+
 // Status files without terminal ids: the cockpit hands out a report script, and
 // finds each agent's file by the container its terminal runs.
 world.agents = [agent("t3", "s1", "working", true), agent("t12", "s1", "working"), agent("t20", "s1", "working")];
@@ -350,6 +400,28 @@ model.handle("journal");
 check("opening the journal restores its width", world.ran.at(-1)[1].id === "journal" && world.ran.at(-1)[1].px === 380);
 world.agents = [];
 everything();
+world.layout = null;
+
+// The Crew and Ships panels fold down to their header, and open again at the size they had.
+world.layout = { id: "root", children: [{ id: "sidebar", size: { px: 268 }, children: [{ id: "rail", size: { weight: 3 } }, { id: "spaces", size: { px: 300 } }] }] };
+world.agents = [agent("t3", "s1", "idle", true)];
+{
+  const [rail, ships] = world.layout.children[0].children;
+  world.ran.length = 0;
+  model.handle("foldcrew");
+  check("folding the Crew panel shrinks it to its header", !model.folded("rail") && world.ran.at(-1)[0] === "layout.resize" && world.ran.at(-1)[1].id === "rail" && world.ran.at(-1)[1].px === model.FOLDED);
+  rail.size = { px: model.FOLDED };
+  check("a panel that small counts as folded", model.folded("rail") && !model.folded("spaces"));
+  everything();
+  narrowRail();
+  model.handle("foldcrew");
+  check("opening the Crew panel gives it its share back", world.ran.at(-1)[1].id === "rail" && world.ran.at(-1)[1].weight === 3 && !("px" in world.ran.at(-1)[1]));
+  model.handle("foldships");
+  ships.size = { px: model.FOLDED };
+  model.handle("foldships");
+  check("the Ships panel's button folds it, and it opens at the height it had", world.ran.at(-2)[1].px === model.FOLDED && world.ran.at(-1)[1].id === "spaces" && world.ran.at(-1)[1].px === 300);
+}
+world.agents = [];
 world.layout = null;
 
 // 5. Assigning crew in the app: the roster file is written, read back and shown.

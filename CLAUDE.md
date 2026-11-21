@@ -43,7 +43,7 @@ This contract is described in four places that must stay in agreement: `REPORT` 
 
 ## Constraints that shape the code
 
-- Use only supported Herdr customization points; nothing that needs re-patching after Herdr updates. The one exception is the "Ships" panel, which `install.sh` makes by copying Herdr's Spaces mod with `sed` and which must be refreshed after a Herdr update.
+- Use only supported Herdr customization points; nothing that needs re-patching after Herdr updates. The one exception is the "Ships" panel, which `install.sh` makes by copying Herdr's Spaces mod with `sed` (heading renamed, plus a fold button that sends the cockpit `foldships`; the folding itself is `toggleFold` in `model.js`) and which must be refreshed after a Herdr update.
 - The mod must be installed as real files in the Herdr home: a symlinked mod shows no images and does not hot-reload. That is why `install.sh` copies.
 - `install.sh` never edits the user's `keys.json` (Herdr stops updating a keys file once edited); `keys.json` here is merged by hand.
 - Agent-agnostic: status comes from OSC 7501 and the status file, never from per-harness hooks (agents are Claude Code and Oh My Pi).

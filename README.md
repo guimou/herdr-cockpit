@@ -16,11 +16,12 @@ The journal and the finer states stay empty until your agents are told to report
 
 ## What is in it
 
-- **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), the terminals, each under a pane header naming its ship and crew member (or a HOST marker on host-side panes), and a journal panel with the state, the task or milestone, current activity and pending decision.
-- **Ambient view** (layout `cockpit-ambient`): up to four large crew cards and the fleet strip, for a monitor you glance at.
+- **Active view** (layout `cockpit`): crew rail on the left (running agents first, asleep crew under them; portraits only when the sidebar is collapsed), the terminals, each under a pane header naming its ship and crew member (or a HOST marker on host-side panes), and a journal panel with the state, the task or milestone, current activity and pending decision.
+- **Ambient view** (layout `cockpit-ambient`): a card per running agent and the fleet strip, for a monitor you glance at. One row up to four agents, two rows up to eight; beyond that the cards are spread over pages that turn every 10 seconds, with a toggle switch per page: lever up holds that page, lever down lets the pages turn again. The lamp above a switch is lit for the page on screen and blinks when someone on that page needs you.
 - **Finer states**: hailing, working, thinking, on subagents, on CI, done, standing by, asleep. Each has its own shape and motion as well as a caption.
 - **Crew with some life**: a crew member can have a portrait per state (`mods/cockpit/crew/<id>-<state>.png`, picked up within a minute; the base portrait is used for the states that have none). The feed glitches for a moment when the state changes, and a new activity line or question is typed out as the crew member reports in.
-- **Ships panel**: Herdr's Spaces list under the crew rail, with its heading renamed. The installer makes it as a renamed copy of the Spaces mod you have; run `tools/install.sh` again after a Herdr update to refresh the copy.
+- **Folding panels**: the button before the Crew and Ships titles folds that panel down to its title, and opens it again at the size it had.
+- **Ships panel**: Herdr's Spaces list under the crew rail, with its heading renamed and a fold button added. The installer makes it as a changed copy of the Spaces mod you have; run `tools/install.sh` again after a Herdr update to refresh the copy.
 
 Not built yet: the fleet picker overlay, extra state sounds. The per-state portraits themselves are still to be generated: only the base ones exist.
 
@@ -30,8 +31,8 @@ Not built yet: the fleet picker overlay, extra state sounds. The per-state portr
 | --- | --- |
 | `alt-a` | Switch between the active and ambient views |
 | `alt-h` | Jump to the next crew member who needs you |
-| `alt-1` to `alt-4` | Jump to a crew member |
-| `ctrl-alt-1` to `ctrl-alt-4` | Bind the crew member in front of you to that number |
+| `alt-1` to `alt-8` | Jump to a crew member |
+| `ctrl-alt-1` to `ctrl-alt-8` | Bind the crew member in front of you to that number |
 | `alt-j` | Show or hide the journal panel |
 | `alt-shift-j` | Collapse the journal to a narrow rail, or open it again (also the `>` button at its top) |
 | `alt-c` | Open the crew assignment menu for the ship in front of you |

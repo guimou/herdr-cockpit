@@ -55,7 +55,7 @@ needs you (hailing), working, thinking, on subagents, on CI, done, asleep (ship 
 Ship identity is carried by color. State is carried by shape, motion and caption, never by color alone.
 
 ### Two views
-- Ambient, for the left monitor: four large crew cards readable from a distance, motion and color, little text, with the fleet strip at the bottom.
+- Ambient, for the left monitor: a crew card per running agent (one row up to four, two rows up to eight, then pages that turn by themselves), readable from a distance, motion and color, little text, with the fleet strip at the bottom.
 - Active, for the center monitor: terminal, a rail of crew portraits followed by tiles for crewless ships, pane headers naming the ship, and a journal panel (state, milestone, current activity, pending decision, earlier decisions).
 - One key toggles between them.
 

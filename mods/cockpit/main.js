@@ -1,18 +1,18 @@
 // Herdr Cockpit: projects are ships, agents are crew. One mod, several roles
 // (props.role), placed by layouts/cockpit.json and layouts/cockpit-ambient.json:
-//   rail     active view, left: crew portraits by ship, then ships without crew
+//   rail     active view, left: crew portraits by ship (running agents, then the asleep), then ships without crew
 //   journal  active view, right: state, task or milestone, current activity, pending decision
 //   pane     active view, each pane's header: the ship and crew member (or HOST marker), pane buttons
-//   ambient  ambient view, whole window: four large crew cards and the fleet strip
+//   ambient  ambient view, whole window: up to eight crew cards a page, and the fleet strip
 //   assign   a popup, opened by a right-click on a ship or crew member: who serves on this ship
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOverlay } from "herdr";
 import {
-  fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
+  fleet, slots, slotOf, muster, pages, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
   roster, pollRoster, pollPoses, shareColors, withAssigned, withUnassigned, saveRoster, openAssign,
-  COMPACT_BELOW, journalNarrow, toggleJournal,
+  COMPACT_BELOW, journalNarrow, toggleJournal, FOLDED, folded, toggleFold,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
 import { txt, say, heading, badge, mark, feed, settleDue, stop, MONO } from "./ui.js";
@@ -106,16 +106,42 @@ class Rail {
       .child(txt(String(ship.name).slice(0, 2), 12, ship.color, 700));
   }
 
-  compact(crewed, empty) {
+  compact(awake, asleep, empty) {
     const t = theme();
     const pad = 2; // each portrait cell adds 2 more, which is where the selection shows
     const w = Math.max(24, Math.min(48, Math.floor(this.width) - 4 * pad));
-    return v_flex().id("cockpit-rail").size_full().bg(t.chrome).overflow_y_scrollbar().py(8).px(pad).gap(4).items_center()
+    const rule = () => div().flex_none().w(Math.round(w * 0.6)).h(1).bg(t.border);
+    return this.frame(true, v_flex().pb(8).px(pad).gap(4).items_center(), [
+      ...awake.map((m) => this.compactMember(m, w)),
+      ...(awake.length && asleep.length ? [rule()] : []),
+      ...asleep.map((m) => this.compactMember(m, w)),
+      ...((awake.length || asleep.length) && empty.length ? [rule()] : []),
+      ...empty.map((s) => this.compactCrewless(s, w)),
+    ]);
+  }
+
+  /**
+   * The rail, built as Herdr's Spaces panel (the Ships panel) is: a header with the title,
+   * over a list that takes the rest of the height and always shows its scrollbar. The rows
+   * are flex_none, so that a long list scrolls instead of squeezing them. The button before
+   * the title folds the panel down to this header, and opens it again.
+   */
+  frame(compact, list, rows) {
+    const t = theme();
+    const shut = folded("rail");
+    const fold = div().id("crew-fold").size(20).flex_none().flex().items_center().justify_center().rounded(5)
+      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip(shut ? "Open the Crew panel" : "Fold the Crew panel")
+      .on_click(() => toggleFold("rail"))
+      .child(svg(`mods/workspace-chrome/chevron-${shut ? "right" : "down"}.svg`).size(11));
+    return v_flex().id("cockpit-rail").size_full().min_h(0).bg(t.chrome)
       .on_size_change((size, cx) => this.resized(size, cx))
-      .children(crewed.flatMap((s) => s.members.map((m) => this.compactMember(m, w))))
-      .when(Boolean(crewed.length && empty.length), (el) => el
-        .child(div().flex_none().w(Math.round(w * 0.6)).h(1).bg(t.border)))
-      .children(empty.map((s) => this.compactCrewless(s, w)));
+      .child(h_flex().flex_none().h(FOLDED).gap(4).items_center().text_size(11.5).text_color(t.dim)
+        .when(compact, (el) => el.justify_center())
+        .when(!compact, (el) => el.pl(16).pr(10))
+        .child(fold)
+        .when(!compact, (el) => el.child("Crew")))
+      .when(!shut, (el) => el.child(list.flex_1().min_h(0).overflow_y_scrollbar().mode("always").children(rows)));
   }
 
   resized(size, cx) {
@@ -127,7 +153,7 @@ class Rail {
   member(m, groups) {
     const t = theme();
     const here = Boolean(m.agent?.focused);
-    let row = h_flex().id(`crew-${m.key}`).gap(8).p(6).rounded(6).items_center()
+    let row = h_flex().id(`crew-${m.key}`).flex_none().gap(8).p(6).rounded(6).items_center()
       .bg(here ? t.selected : "#00000000");
     if (m.agent) {
       row = row.cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover))
@@ -152,7 +178,7 @@ class Rail {
   crewless(ship) {
     const t = theme();
     const on = ship.space.active;
-    return h_flex().id(`ship-${ship.id}`).gap(8).px(8).h(30).rounded(6).items_center().cursor_pointer()
+    return h_flex().id(`ship-${ship.id}`).flex_none().gap(8).px(8).h(30).rounded(6).items_center().cursor_pointer()
       .border_1().border_color(on ? ship.color : t.border).bg(on ? t.selected : "#00000000")
       .hover((s) => s.bg(on ? t.selected : t.hover))
       .tooltip(`${ship.name}: no crew · right-click to assign crew`)
@@ -170,16 +196,18 @@ class Rail {
     const crewed = ships.filter((s) => s.members.length);
     const empty = ships.filter((s) => !s.members.length);
     setAgentOrder(crewed.flatMap((s) => s.members.filter((m) => m.agent).map((m) => m.agent.address)));
-    if (this.width < COMPACT_BELOW) return this.compact(crewed, empty);
-    return v_flex().id("cockpit-rail").size_full().bg(t.chrome).overflow_y_scrollbar().p(8).gap(4)
-      .on_size_change((size, cx) => this.resized(size, cx))
-      .child(heading("Crew"))
-      .when(!crewed.length, (el) => el.child(txt("No agents running.", 12, t.muted)))
-      .children(crewed.flatMap((s) => s.members.map((m) => this.member(m, groups))))
-      .when(Boolean(empty.length), (el) => el
-        .child(div().h(6).flex_none())
-        .child(heading("No crew"))
-        .children(empty.map((s) => this.crewless(s))));
+    // Running agents first, ship by ship; the seats whose agent is not running go under them.
+    const crew = crewed.flatMap((s) => s.members);
+    const awake = crew.filter((m) => m.agent);
+    const asleep = crew.filter((m) => !m.agent);
+    if (this.width < COMPACT_BELOW) return this.compact(awake, asleep, empty);
+    const gap = () => div().h(6).flex_none();
+    return this.frame(false, v_flex().px(8).pb(8).gap(4), [
+      ...(awake.length ? [] : [txt("No agents running.", 12, t.muted).flex_none()]),
+      ...awake.map((m) => this.member(m, groups)),
+      ...(asleep.length ? [gap(), heading("Asleep").flex_none(), ...asleep.map((m) => this.member(m, groups))] : []),
+      ...(empty.length ? [gap(), heading("No crew").flex_none(), ...empty.map((s) => this.crewless(s))] : []),
+    ]);
   }
 }
 
@@ -347,13 +375,29 @@ class PaneHead {
 
 // ------------------------------------------------------------------ ambient
 
+const TURN = 10_000; // how long a page stays up when the crew needs several
+const STRIP = 60; // the fleet strip's height, for sizing the cards above it
+const SWITCHES = 76; // its height with the page switches in it
+
 class Ambient {
   init(_pr, cx) {
     this.width = 1600;
+    this.height = 900;
+    this.page = 0;
+    this.pages = 1;
+    this.pinned = null; // the page whose switch is on: it stays up, and the pages stop turning
+    this.room = new Map(); // member key -> the space its card has for the portrait, as last measured
     own(cx, true);
+    if (checking()) return;
+    cx.timer.every(TURN, (cx) => {
+      if (this.pages < 2 || this.pinned !== null) return;
+      this.page = (this.page + 1) % this.pages;
+      cx.notify();
+    });
   }
 
-  card(m, n, w) {
+  /** One crew card. `small` when the page has two rows: same content, tighter. */
+  card(m, n, w, small) {
     const t = theme();
     const f = m.file;
     const hailing = m.state === "hailing";
@@ -365,16 +409,25 @@ class Ambient {
       .border_1().border_color(hailing ? "#ffffff" : t.border)
       .on_click(() => goTo(m, true))
       .child(div().flex_none().h(8).bg(m.ship.color))
-      .child(v_flex().flex_1().min_h(0).p(18).gap(12)
-        .child(h_flex().gap(10).items_center()
-          .child(txt(callSign(m), 38, m.ship.color, 700).flex_1().min_w(0).truncate())
+      .child(v_flex().flex_1().min_h(0).p(small ? 12 : 18).gap(small ? 8 : 12)
+        .child(h_flex().flex_none().gap(10).items_center()
+          .child(txt(callSign(m), small ? 26 : 38, m.ship.color, 700).flex_1().min_w(0).truncate())
           .child(slotKey(n, m.ship.color)))
-        .child(h_flex().justify_center().child(feed(m, w, `feed-card-${m.key}`)))
-        .child(txt(m.name.toUpperCase(), 12, t.muted, 700))
-        .child(badge(m.state, 22))
-        .when(Boolean(f?.milestone), (el) => el.child(txt(f.milestone, 16, t.foreground, 600).truncate()))
-        .when(Boolean(f?.activity), (el) => el.child(doing))
-        .when(Boolean(ask), (el) => el.child(asking)));
+        // The text keeps its height; the portrait gets what is left, and that is measured
+        // so render() can size the portrait to fit instead of guessing the text's height.
+        .child(h_flex().flex_1().min_h(0).justify_center().items_center().overflow_hidden()
+          .on_size_change((size, cx) => {
+            const was = this.room.get(m.key);
+            if (was?.w === size.width && was?.h === size.height) return;
+            this.room.set(m.key, { w: size.width, h: size.height });
+            cx.notify();
+          })
+          .child(feed(m, w, `feed-card-${m.key}`)))
+        .child(txt(m.name.toUpperCase(), 12, t.muted, 700).flex_none())
+        .child(badge(m.state, small ? 16 : 22))
+        .when(Boolean(f?.milestone), (el) => el.child(txt(f.milestone, small ? 14 : 16, t.foreground, 600).flex_none().truncate()))
+        .when(Boolean(f?.activity), (el) => el.child(doing.flex_none()))
+        .when(Boolean(ask), (el) => el.child(asking.flex_none())));
   }
 
   chip(ship) {
@@ -388,22 +441,72 @@ class Ambient {
       .child(txt(summary(ship), 11, t.dim, 500));
   }
 
+  /**
+   * One toggle switch per page, shown when there are several. Lever up holds that page and
+   * stops the pages turning; lever down again lets them turn. The lamp above the switch is
+   * lit for the page on screen, and blinks "!" when someone on that page is hailing.
+   */
+  pager(decks, at) {
+    const t = theme();
+    return h_flex().flex_none().gap(10).children(decks.map((deck, i) => {
+      const on = this.pinned === i;
+      const lamp = deck.some((m) => m.state === "hailing")
+        ? mark("hailing", 10)
+        : div().flex_none().w(14).h(5).rounded(1).border_1().border_color(i === at ? t.foreground : t.border)
+            .bg(i === at ? t.foreground : t.canvas);
+      const lever = div().absolute().left(3).w(12).h(14).rounded(2).bg(on ? t.foreground : t.muted);
+      return v_flex().id(`page-${i}`).flex_none().gap(3).items_center().cursor_pointer()
+        .tooltip(on ? "Let the pages turn again" : `Hold page ${i + 1}`)
+        .on_click((_e, cx) => { this.pinned = on ? null : i; this.page = i; cx.notify(); })
+        .child(h_flex().flex_none().h(14).items_center().child(lamp))
+        .child(div().relative().flex_none().w(20).h(34).rounded(4).bg("#05080d").border_1().border_color(on ? t.foreground : t.border)
+          .child(div().absolute().left(8).top(4).w(2).h(24).bg(t.border)) // the slot the lever travels in
+          .child(on ? lever.top(2) : lever.bottom(2)))
+        .child(txt(i + 1, 11, on || i === at ? t.foreground : t.muted, 700).font_family(MONO));
+    }));
+  }
+
   render() {
     const t = theme();
     const ships = fleet();
     const groups = slots(ships);
-    const shown = groups.filter(Boolean);
-    setAgentOrder(shown.map((m) => m.agent.address));
-    // Portrait width from the window: four cards across, each with its padding.
-    const w = Math.max(120, Math.min(300, Math.floor((this.width - 5 * 16) / 4) - 60));
+    const decks = pages(muster(ships));
+    this.pages = decks.length;
+    if (this.pinned >= decks.length) this.pinned = null; // its page is gone: turn again
+    const at = this.page % decks.length;
+    const shown = decks[at];
+    setAgentOrder(decks.flat().map((m) => m.agent.address));
+    // One row up to four crew, two rows up to eight; a short second row keeps the columns.
+    const rows = shown.length > 4 ? 2 : 1;
+    const cols = Math.ceil(shown.length / rows) || 1;
+    const small = rows > 1;
+    // Portrait size: the same on every card, from the card with the least room for it (the
+    // one with the most text). Until a card has been measured, an estimate from the window.
+    const cardW = (this.width - 16 * (cols + 1)) / cols;
+    const cardH = (this.height - 16 * (rows + 2) - (decks.length > 1 ? SWITCHES : STRIP)) / rows;
+    const guess = Math.min(cardW - 60, (cardH - (small ? 210 : 260)) / 1.25);
+    const fits = shown.map((m) => this.room.get(m.key)).map((r) => (r ? Math.min(r.w, r.h / 1.25) : guess));
+    const w = Math.floor(Math.max(48, Math.min(300, ...fits)));
+    const row = (r) => {
+      const cards = shown.slice(r * cols, (r + 1) * cols).map((m) => this.card(m, slotOf(m, groups), w, small));
+      while (cards.length < cols) cards.push(div().flex_1().min_w(0));
+      return h_flex().flex_1().min_h(0).gap(16).children(cards);
+    };
     return v_flex().id("cockpit-ambient").size_full().bg(t.canvas).p(16).gap(16)
-      .on_size_change((size, cx) => { if (size.width !== this.width) { this.width = size.width; cx.notify(); } })
-      .child(shown.length
-        ? h_flex().flex_1().min_h(0).gap(16).children(groups.map((m, i) => (m ? this.card(m, i + 1, w) : null)).filter(Boolean))
-        : v_flex().flex_1().items_center().justify_center().gap(6)
+      .on_size_change((size, cx) => {
+        if (size.width === this.width && size.height === this.height) return;
+        this.width = size.width;
+        this.height = size.height;
+        cx.notify();
+      })
+      .children(shown.length
+        ? Array.from({ length: rows }, (_, r) => row(r))
+        : [v_flex().flex_1().items_center().justify_center().gap(6)
             .child(txt("All hands asleep", 28, t.muted, 700))
-            .child(txt("No agent is running in any ship.", 14, t.dim)))
-      .child(h_flex().flex_none().flex_wrap().gap(10).children(ships.map((s) => this.chip(s))));
+            .child(txt("No agent is running in any ship.", 14, t.dim))])
+      .child(h_flex().flex_none().gap(16).items_center()
+        .child(h_flex().flex_1().min_w(0).flex_wrap().gap(10).children(ships.map((s) => this.chip(s))))
+        .when(decks.length > 1, (el) => el.child(this.pager(decks, at))));
   }
 }
 
