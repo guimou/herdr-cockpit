@@ -10,7 +10,7 @@ Herdr itself only knows four agent states: working, blocked, idle and done. The 
 
 - Agents do not write the file themselves. They pipe the JSON to `.cockpit/report`, a script the cockpit puts in the folder, and the script picks the name: `c-<container name>` in a Podman container that was given its name (`CODEBOX_SESSION`, which the box launchers set), else the Herdr terminal id (`HC_TERMINAL_ID`, such as `t7`), else `status`. See [how agents are told apart](agent-instructions.md#how-agents-are-told-apart).
 - The script adds `updated` with its own clock, writes the file in one move, and removes container files older than a week.
-- The cockpit looks for the container's file first, then the terminal's, then `status.json` when the ship has a single agent. With several agents, `status.json` is never shown, since nobody can tell whose it is; the journal says so when it sees that file written.
+- The cockpit reads the container's file, the terminal's, and `status.json` when the ship has a single agent, and shows the one written last (`updated`), so a file an agent no longer writes cannot hide the one it writes now. With several agents, `status.json` is never shown, since nobody can tell whose it is; the journal says so when it sees that file written.
 - Keep the folder out of git. The agent prompt does it with a `.cockpit/.gitignore` containing `*`, so the repository's own `.gitignore` need not change.
 
 The mod reads these files every 3 seconds from the folder of the agent's pane, on the machine the space lives on: this one, or one added with `hc machine add`.

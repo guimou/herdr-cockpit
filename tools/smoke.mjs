@@ -277,6 +277,18 @@ await model.pollStatus();
   check("an agent that gets its own file is shown again, and no longer flagged", first.file?.milestone === "now with its own file" && !first.sharedAt && second.sharedAt > 0);
   everything();
 }
+// An agent left alone in its ship, whose script went back to writing status.json: the file
+// under its own name stops changing, and must not hide the one it writes now.
+world.agents = [agent("t3", "s1", "working", true)];
+world.files = {
+  "/r/emauria/.cockpit/c-ccbox-emauria-e5.json": JSON.stringify({ task: "under its own name", updated: Date.now() - 60 * 60000 }),
+  "/r/emauria/.cockpit/status.json": JSON.stringify({ task: "left by a lone agent", updated: Date.now() - 120 * 60000 }),
+};
+await model.pollStatus();
+check("a lone agent's own file wins over an older status.json", world.shared["cockpit.status"].t3.milestone === "under its own name");
+world.files["/r/emauria/.cockpit/status.json"] = JSON.stringify({ task: "now in status.json", updated: Date.now() - 60000 });
+await model.pollStatus();
+check("a lone agent that goes back to status.json is followed there", world.shared["cockpit.status"].t3.milestone === "now in status.json");
 world.terminals = [];
 world.agents = [];
 world.files = {};
