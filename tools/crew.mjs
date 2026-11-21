@@ -10,7 +10,8 @@
 //   crew ship demo-lab --remove            forget a ship (its space still shows, unnamed)
 //   crew sync                              rewrite the installed roster from your roster file
 //
-// A ship is a Herdr space, named as the space is. A crew member serves on one
+// A ship is a Herdr space, named as the space is (the app follows a renamed space; --name
+// sets a different name to display). A crew member serves on one
 // ship at a time, so assigning moves them.
 //
 // Your roster is kept in <Herdr home>/cockpit-roster.json, outside the mod, so

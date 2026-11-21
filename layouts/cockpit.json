@@ -58,12 +58,6 @@
           "content": { "mod": "tabs" }
         },
         {
-          "id": "header",
-          "type": "block",
-          "size": { "px": 48 },
-          "content": { "mod": "cockpit", "props": { "role": "header" } }
-        },
-        {
           "id": "work-body",
           "type": "row",
           "padding": 8,

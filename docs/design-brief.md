@@ -56,7 +56,7 @@ Ship identity is carried by color. State is carried by shape, motion and caption
 
 ### Two views
 - Ambient, for the left monitor: four large crew cards readable from a distance, motion and color, little text, with the fleet strip at the bottom.
-- Active, for the center monitor: terminal, a rail of crew portraits followed by tiles for crewless ships, a header naming the ship, and a journal panel (milestone, current activity, pending decision, earlier decisions).
+- Active, for the center monitor: terminal, a rail of crew portraits followed by tiles for crewless ships, pane headers naming the ship, and a journal panel (state, milestone, current activity, pending decision, earlier decisions).
 - One key toggles between them.
 
 ### Ships without crew
@@ -123,6 +123,8 @@ Herdr is open source (Apache 2.0). `defaults/` holds the shipped mods, layouts, 
 Layouts `cockpit` and `cockpit-ambient` with the `cockpit` mod: crew rail, ship header, journal panel, pane headers with the HOST marker, ambient cards and fleet strip, the eight states drawn in the portrait frame, and the bridge keys. Finer states and the journal come from the status file described in [status-file.md](status-file.md). Not built yet: the fleet picker, extra state sounds.
 
 Added the same day: the code for per-state stills (a portrait named `<id>-<state>.png` replaces the base one in that state, with a glitch cut on every state change), and the activity line or pending question typed out when it changes. The stills themselves are not generated yet.
+
+Changed the same day: the ship header bar is gone. It repeated the rail, the pane header and the journal, and cost 48 px of terminal height. The pane header now names the ship and crew member, the rail and the journal show the state, and the journal alone shows the task and its progress.
 
 ## Open questions
 

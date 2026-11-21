@@ -23,7 +23,7 @@ CI (`.github/workflows/ci.yml`) runs the smoke test on Node 22 and 24, `shellche
 
 ## Architecture
 
-**One mod, many roles.** `mods/cockpit/main.js` exports a single `View`; the layouts (`layouts/cockpit.json`, `layouts/cockpit-ambient.json`) place it several times with different `props.role`: `rail`, `header`, `journal`, `pane` (per-pane header), `ambient`, and `assign` (a popup opened with `openOverlay`). With no role (as under `herdr-app check`) it renders every role at once so the check covers them all.
+**One mod, many roles.** `mods/cockpit/main.js` exports a single `View`; the layouts (`layouts/cockpit.json`, `layouts/cockpit-ambient.json`) place it several times with different `props.role`: `rail`, `journal`, `pane` (per-pane header), `ambient`, and `assign` (a popup opened with `openOverlay`). With no role (as under `herdr-app check`) it renders every role at once so the check covers them all.
 
 **Module split.** `model.js` holds the data and actions (no drawing), `ui.js` the shared drawing primitives (text, state mark, comm-feed portrait frame), `main.js` the roles, `fleet.js` the crew list, palette and ranks, `roster.js` the default ship assignments. Imports come from Herdr's modules `gpui-kit`, `gpui-base` and `herdr`; their typed API is `herdr.d.ts` in Herdr's source (`defaults/`), and the app's own `~/.config/herdr-app/AGENTS.md` explains mods. Using a `herdr` function that `tools/smoke.mjs` does not stub breaks the smoke test: add a stub there too.
 
@@ -35,7 +35,7 @@ CI (`.github/workflows/ci.yml`) runs the smoke test on Node 22 and 24, `shellche
 
 This contract is described in four places that must stay in agreement: `REPORT` and `statusNames` in `model.js`, `docs/status-file.md`, `docs/agent-instructions.md`, and `prompts/cockpit-status.md` (the text users paste into their shared CLAUDE.md/AGENTS.md). Change one, check the others.
 
-**Roster.** The user's assignments live in `<Herdr home>/cockpit-roster.json`, outside the mod, so reinstalls keep them. Both the in-app `assign` popup (`saveRoster`, with a compare-and-write retry) and `tools/crew.mjs` write that file; `crew.mjs` also rewrites the installed `mods/cockpit/roster.js`, and `install.sh` runs `crew sync` to restore it after copying the default over. The repo's `roster.js` is only the default. A space not in the roster still appears, with its own name and `autoColor(name)`.
+**Roster.** The user's assignments live in `<Herdr home>/cockpit-roster.json`, outside the mod, so reinstalls keep them. Both the in-app `assign` popup (`saveRoster`, with a compare-and-write retry) and `tools/crew.mjs` write that file; `crew.mjs` also rewrites the installed `mods/cockpit/roster.js`, and `install.sh` runs `crew sync` to restore it after copying the default over. The repo's `roster.js` is only the default. A space not in the roster still appears, with its own name and `autoColor(name)`. `shareColors` publishes each ship's color to Herdr's own `space.colors` shared state, which is what colors the Ships panel's tiles.
 
 **Recruiting crew.** Add `mods/cockpit/crew/<id>-base.png` (4:5) and an entry in `CREW` in `fleet.js`; `docs/crew-style-guide.md` has the portrait rules and generation prompts. Optional `<id>-<state>.png` files are found by `pollPoses` (an `ls` of the installed `crew/` folder, published as `cockpit.poses`) and used by `fleet()` for that state.
 
