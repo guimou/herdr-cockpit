@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24] # the oldest line the tools support (22.7+) and the current one
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node tools/smoke.mjs
+
+  lint:
+    name: Installer and JSON files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck tools/install.sh
+      # A layout or keys file that does not parse only shows up in Herdr as a .error file.
+      - run: |
+          for f in layouts/*.json mods/cockpit/mod.json keys.json; do
+            node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$f" || { echo "::error file=$f::not valid JSON"; exit 1; }
+          done
