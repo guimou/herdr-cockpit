@@ -26,16 +26,27 @@ rm -rf "$home/mods/cockpit"
 cp -R "$repo/mods/cockpit" "$home/mods/cockpit"
 cp "$repo/layouts/cockpit.json" "$repo/layouts/cockpit-ambient.json" "$home/layouts/"
 
-# The "Ships" panel is Herdr's own Spaces mod with its heading renamed. The
-# heading is fixed in the mod's code, so this makes a renamed copy from the
-# Spaces mod installed here and points the cockpit layout at it. A copy does not
-# follow Herdr's updates: run this script again after updating Herdr to refresh
-# it. If the heading is not where it is expected, the layout keeps plain Spaces.
+# The "Ships" panel is Herdr's own Spaces mod with its heading renamed, and a
+# button before the heading that folds the panel (the cockpit does the folding:
+# the button only sends it "foldships"). The heading is fixed in the mod's code,
+# so this makes a changed copy from the Spaces mod installed here and points the
+# cockpit layout at it. A copy does not follow Herdr's updates: run this script
+# again after updating Herdr to refresh it. If the heading is not where it is
+# expected, the layout keeps plain Spaces; if what the button needs is not
+# there, the panel is renamed and gets no button.
 ships=""
+heading='el.child("Ships")'
+# 40: the height under which a panel counts as folded, as in mods/cockpit/model.js.
+if grep -q 'find(layout(), "sidebar")' "$home/mods/spaces/main.js" 2>/dev/null \
+  && [ -f "$home/mods/workspace-chrome/chevron-right.svg" ] && [ -f "$home/mods/workspace-chrome/chevron-down.svg" ]; then
+  heading='el.child(h_flex().gap(4).items_center().child(div().id("ships-fold").size(20).flex_none().flex().items_center().justify_center().rounded(5).hover(s => s.bg(t.hover).text_color(t.foreground)).tooltip("Fold or open the Ships panel").on_click(() => run("cockpit.foldships")).child(svg("mods/workspace-chrome/chevron-" + ((find(layout(), "spaces")?.size?.px ?? Infinity) <= 40 ? "right" : "down") + ".svg").size(11))).child("Ships"))'
+else
+  echo "Herdr's Spaces mod has changed: the Ships panel gets no fold button." >&2
+fi
 if grep -q 'el\.child("Spaces")' "$home/mods/spaces/main.js" 2>/dev/null; then
   rm -rf "$home/mods/ships"
   mkdir "$home/mods/ships"
-  sed 's/el\.child("Spaces")/el.child("Ships")/' "$home/mods/spaces/main.js" > "$home/mods/ships/main.js"
+  sed "s|el\\.child(\"Spaces\")|$heading|" "$home/mods/spaces/main.js" > "$home/mods/ships/main.js"
   sed 's/"title": *"Spaces"/"title": "Ships"/' "$home/mods/spaces/mod.json" > "$home/mods/ships/mod.json"
   sed 's/"mod": "spaces"/"mod": "ships"/' "$repo/layouts/cockpit.json" > "$home/layouts/cockpit.json"
   ships="yes"

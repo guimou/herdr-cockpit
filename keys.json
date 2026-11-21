@@ -9,10 +9,18 @@
     "alt-2": "cockpit.crew2",
     "alt-3": "cockpit.crew3",
     "alt-4": "cockpit.crew4",
+    "alt-5": "cockpit.crew5",
+    "alt-6": "cockpit.crew6",
+    "alt-7": "cockpit.crew7",
+    "alt-8": "cockpit.crew8",
     "ctrl-alt-1": "cockpit.bind1",
     "ctrl-alt-2": "cockpit.bind2",
     "ctrl-alt-3": "cockpit.bind3",
-    "ctrl-alt-4": "cockpit.bind4"
+    "ctrl-alt-4": "cockpit.bind4",
+    "ctrl-alt-5": "cockpit.bind5",
+    "ctrl-alt-6": "cockpit.bind6",
+    "ctrl-alt-7": "cockpit.bind7",
+    "ctrl-alt-8": "cockpit.bind8"
   },
   "layout:cockpit-ambient": {
     "alt-a": "layout.switch:cockpit",
@@ -20,6 +28,10 @@
     "alt-1": "cockpit.crew1",
     "alt-2": "cockpit.crew2",
     "alt-3": "cockpit.crew3",
-    "alt-4": "cockpit.crew4"
+    "alt-4": "cockpit.crew4",
+    "alt-5": "cockpit.crew5",
+    "alt-6": "cockpit.crew6",
+    "alt-7": "cockpit.crew7",
+    "alt-8": "cockpit.crew8"
   }
 }
