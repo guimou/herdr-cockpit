@@ -19,6 +19,8 @@ node tools/crew.mjs ...  # roster CLI (crew assign/unassign/ship/sync)
 
 The smoke test is a single script of sequential `check(...)` calls with shared state, so there is no running one test in isolation: run the whole file. It catches JavaScript errors (bad imports, `null` children, NaN sizes) but does not know Herdr's real API, so a passing smoke test still needs `herdr-app check` and a look in the app. The README says the mod has not yet been run in Herdr itself.
 
+CI (`.github/workflows/ci.yml`) runs the smoke test on Node 22 and 24, `shellcheck tools/install.sh`, and a parse of the JSON files. It cannot run `herdr-app check`.
+
 ## Architecture
 
 **One mod, many roles.** `mods/cockpit/main.js` exports a single `View`; the layouts (`layouts/cockpit.json`, `layouts/cockpit-ambient.json`) place it several times with different `props.role`: `rail`, `header`, `journal`, `pane` (per-pane header), `ambient`, and `assign` (a popup opened with `openOverlay`). With no role (as under `herdr-app check`) it renders every role at once so the check covers them all.
