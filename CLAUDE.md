@@ -17,7 +17,7 @@ herdr-app check ~/.config/herdr-app/mods/cockpit   # validates the mod against H
 node tools/crew.mjs ...  # roster CLI (crew assign/unassign/ship/sync)
 ```
 
-The smoke test is a single script of sequential `check(...)` calls with shared state, so there is no running one test in isolation: run the whole file. It catches JavaScript errors (bad imports, `null` children, NaN sizes) but does not know Herdr's real API, so a passing smoke test still needs `herdr-app check` and a look in the app. The README says the mod has not yet been run in Herdr itself.
+The smoke test is a single script of sequential `check(...)` calls with shared state, so there is no running one test in isolation: run the whole file. It catches JavaScript errors (bad imports, `null` children, NaN sizes) but does not know Herdr's real API, so a passing smoke test still needs `herdr-app check` and a look in the app.
 
 CI (`.github/workflows/ci.yml`) runs the smoke test on Node 22 and 24, `shellcheck tools/install.sh`, and a parse of the JSON files. It cannot run `herdr-app check`.
 
@@ -37,7 +37,9 @@ This contract is described in four places that must stay in agreement: `REPORT` 
 
 **Roster.** The user's assignments live in `<Herdr home>/cockpit-roster.json`, outside the mod, so reinstalls keep them. Both the in-app `assign` popup (`saveRoster`, with a compare-and-write retry) and `tools/crew.mjs` write that file; `crew.mjs` also rewrites the installed `mods/cockpit/roster.js`, and `install.sh` runs `crew sync` to restore it after copying the default over. The repo's `roster.js` is only the default. A space not in the roster still appears, with its own name and `autoColor(name)`.
 
-**Recruiting crew.** Add `mods/cockpit/crew/<id>-base.png` (4:5) and an entry in `CREW` in `fleet.js`; `docs/crew-style-guide.md` has the portrait rules and generation prompts.
+**Recruiting crew.** Add `mods/cockpit/crew/<id>-base.png` (4:5) and an entry in `CREW` in `fleet.js`; `docs/crew-style-guide.md` has the portrait rules and generation prompts. Optional `<id>-<state>.png` files are found by `pollPoses` (an `ls` of the installed `crew/` folder, published as `cockpit.poses`) and used by `fleet()` for that state.
+
+**Moments.** Herdr's animations loop forever, so anything that should play once (the glitch cut in `feed`, a line typed by `say`) goes through `fresh(id, value, ms)` in `ui.js`, and the role must call `settle(cx)` in its `init` so it draws again when the moment is over. Herdr does not draw a view that holds an animation faster than 100 ms (frame time or loop period); the smoke test's stubs refuse those.
 
 ## Constraints that shape the code
 

@@ -42,8 +42,13 @@ const el = (kind) => {
           if (args[0]) return args[1](proxy);
         } else if (key === "hover" || key === "active") {
           args[0](proxy);
+        } else if (key === "loop") {
+          if (!(args[1]?.period >= 100)) throw new Error("loop() needs a period of 100 ms or more, got " + args[1]?.period);
         } else if (key === "frames") {
           if (!Array.isArray(args[0]) || typeof args[1] !== "number") throw new Error("frames(list, ms)");
+          // Seen in Herdr: a view with an animation faster than 100 ms is not drawn at all.
+          if (args[1] < 100) throw new Error("frames() faster than 100 ms");
+          globalThis.framed?.push(args[0]);
         } else {
           for (const a of args) if (typeof a === "number" && Number.isNaN(a)) throw new Error(kind + "." + String(key) + "() got NaN");
         }
@@ -66,7 +71,7 @@ export const h_flex = () => el("h_flex");
 export const v_flex = () => el("v_flex");
 `);
 stub("herdr", `
-export const world = { spaces: [], agents: [], panes: [], shared: {}, props: {}, files: {}, ran: [], overlays: [], terminals: [], execs: [] };
+export const world = { spaces: [], agents: [], panes: [], shared: {}, props: {}, files: {}, ran: [], overlays: [], terminals: [], execs: [], crewDir: "", framed: [] };
 export const spaces = () => world.spaces;
 export const agents = () => world.agents;
 export const panes = () => world.panes;
@@ -88,6 +93,7 @@ export const appHome = () => "/herdr";
 export const terminals = () => world.terminals;
 export const exec = async (command, args, options) => {
   world.execs.push([command, args, options]);
+  if (command === "ls") return { code: 0, stdout: world.crewDir, stderr: "" };
   if (command === "sh" && args[2] === "cockpit") world.files[options.cwd + "/.cockpit/report"] = args[3];
   return { code: 0, stdout: "", stderr: "" };
 };
@@ -99,6 +105,8 @@ export const closeOverlay = () => null;
 const { world } = await import(pathToFileURL(join(dir, "node_modules", "herdr", "index.js")).href);
 const { default: Cockpit } = await import(pathToFileURL(join(dir, "cockpit", "main.js")).href);
 const model = await import(pathToFileURL(join(dir, "cockpit", "model.js")).href);
+const ui = await import(pathToFileURL(join(dir, "cockpit", "ui.js")).href);
+globalThis.framed = []; // every list of frames an element was given
 
 const cx = { notify() {}, spawn() {}, stop_propagation() {}, timer: { every() { return { cancel() {} }; } } };
 const render = (role, extra = {}) => {
@@ -187,6 +195,29 @@ check("a ship without agents has no crew", litemaas.members.length === 0);
   await model.pollStatus();
   const f = model.fleet()[0].members[0].file;
   check("a status seen changing is timed by the cockpit, not by the agent's clock", f.milestone === "Next task" && Date.now() - f.updated < 5000);
+}
+
+// A state's own portrait is used once its file is in crew/, and a change is drawn for a moment.
+{
+  const vega = () => model.fleet()[0].members[0];
+  check("without a portrait for its state, a crew member shows the base one", vega().portrait.endsWith("/vega-base.png"));
+  world.files["/r/emauria/.cockpit/t3.json"] = JSON.stringify({ state: "blocked", task: "Next task", activity: "Waiting for you", question: "Ship it?" });
+  await model.pollStatus();
+  world.crewDir = "vega-base.png\nvega-hailing.png\nvega-notastate.png\norrin-base.png\nREADME.md\n";
+  await model.pollPoses();
+  check("a portrait named after a state is used for that state", vega().state === "hailing" && vega().portrait.endsWith("/vega-hailing.png")
+    && JSON.stringify(world.shared["cockpit.poses"]) === '{"vega":["hailing"]}');
+  check("nothing is fresh the first time it is drawn", !ui.fresh("x", "a", 1000) && !ui.fresh("x", "a", 1000));
+  check("a change is fresh for a moment, and says when to draw again", ui.fresh("x", "b", 1000) && ui.fresh("x", "b", 1000) && ui.settleDue() > Date.now());
+  // The rail and the cards were drawn with the previous line: the new one is typed out.
+  framed.length = 0;
+  everything();
+  const typed = framed.filter((f) => f.at(-1) === "Ship it?");
+  check("a line that changed is typed out and ends whole", typed.length > 0 && typed.every((f) => f[0] === "Sh_"));
+  world.agents = world.agents.map((a) => (a.address === "t3" ? { ...a, status: "working" } : a));
+  check("another state goes back to the base portrait", vega().portrait.endsWith("/vega-base.png"));
+  everything(); // the glitch cut
+  world.crewDir = "";
 }
 
 // 3. A listed ship whose crew are not running shows them asleep.

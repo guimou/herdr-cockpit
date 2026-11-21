@@ -2,7 +2,7 @@
 
 A Herdr theme: a clean sci-fi "fleet and crew" skin for running several coding agents in parallel in the [Herdr](https://herdr.dev) desktop app. Each project is a ship with its own color, each agent is a crew member with a portrait, and the interface shows at a glance who needs you, what each agent is doing, and which terminal you are in.
 
-**Status:** first pass of the mod and layouts. It passes the smoke test in this repository but has not yet been run in Herdr.
+**Status:** first pass of the mod and layouts. It runs in Herdr: both views, the status files and the per-state portraits have been used in the app. The smoke test in this repository covers the rest.
 
 ## Install
 
@@ -19,9 +19,10 @@ The journal and the finer states stay empty until your agents are told to report
 - **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the task or milestone, current activity and pending decision.
 - **Ambient view** (layout `cockpit-ambient`): up to four large crew cards and the fleet strip, for a monitor you glance at.
 - **Finer states**: hailing, working, thinking, on subagents, on CI, done, standing by, asleep. Each has its own shape and motion as well as a caption.
+- **Crew with some life**: a crew member can have a portrait per state (`mods/cockpit/crew/<id>-<state>.png`, picked up within a minute; the base portrait is used for the states that have none). The feed glitches for a moment when the state changes, and a new activity line or question is typed out as the crew member reports in.
 - **Ships panel**: Herdr's Spaces list under the crew rail, with its heading renamed. The installer makes it as a renamed copy of the Spaces mod you have; run `tools/install.sh` again after a Herdr update to refresh the copy.
 
-Not built yet: the fleet picker overlay, per-state portraits, extra state sounds.
+Not built yet: the fleet picker overlay, extra state sounds. The per-state portraits themselves are still to be generated: only the base ones exist.
 
 ### Keys
 

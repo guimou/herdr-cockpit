@@ -12,19 +12,34 @@ import { h_flex, v_flex } from "gpui-base";
 import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOverlay } from "herdr";
 import {
   fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
-  roster, pollRoster, withAssigned, withUnassigned, saveRoster, openAssign,
+  roster, pollRoster, pollPoses, withAssigned, withUnassigned, saveRoster, openAssign,
   COMPACT_BELOW, journalNarrow, toggleJournal,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
-import { txt, heading, badge, mark, feed, stop, MONO } from "./ui.js";
+import { txt, say, heading, badge, mark, feed, settleDue, stop, MONO } from "./ui.js";
 
 const POLL = 3000;
+
+/**
+ * For a role that draws portraits or spoken lines: draws once more when a change (a
+ * glitch cut, a line being typed) has had its moment, so that it comes to rest.
+ */
+function settle(cx) {
+  if (checking()) return;
+  let done = 0;
+  cx.timer.every(120, (cx) => {
+    const due = settleDue();
+    if (due !== done && Date.now() >= due) { done = due; cx.notify(); }
+  });
+}
 
 /** Started by the one role per layout that owns the data: status files and key commands. */
 function own(cx, fromAmbient) {
   if (checking()) return;
-  cx.timer.every(POLL, () => { pollStatus(); pollRoster(); });
+  settle(cx);
+  cx.timer.every(POLL, () => { pollStatus(); pollRoster(); pollPoses(); });
   cx.spawn(async (cx) => {
+    await pollPoses();
     await pollRoster();
     await pollStatus();
     for (;;) {
@@ -119,6 +134,10 @@ class Rail {
         .tooltip(`${callSign(m)} · ${m.name}${m.program ? ` (${m.program})` : ""}`)
         .on_click(() => goTo(m));
     }
+    // What the crew member is saying: their question when they hail you, else what they are doing.
+    const asking = m.state === "hailing" && Boolean(m.file?.question?.text);
+    const line = m.state === "asleep" ? "" : asking ? m.file.question.text : m.file?.activity ?? "";
+    const said = say(`say-rail-${m.key}`, line, 11, asking ? t.foreground : t.dim, asking ? 600 : 500).truncate();
     return row.on_mouse_down("right", () => openAssign(m.ship))
       .child(feed(m, 48, `feed-rail-${m.key}`))
       .child(v_flex().flex_1().min_w(0).gap(2)
@@ -127,7 +146,7 @@ class Rail {
           .when(Boolean(m.agent), (el) => el.child(slotKey(slotOf(m, groups), m.ship.color))))
         .child(txt(m.name, 11, t.muted, 500).truncate())
         .child(badge(m.state, 10))
-        .when(Boolean(m.file?.activity) && m.state !== "asleep", (el) => el.child(txt(m.file.activity, 11, t.dim, 500).truncate())));
+        .when(Boolean(line), (el) => el.child(said)));
   }
 
   crewless(ship) {
@@ -193,6 +212,7 @@ class Header {
 
 class Journal {
   init(_pr, cx) {
+    settle(cx);
     if (!checking()) cx.timer.every(60_000, (cx) => cx.notify()); // keeps "4 min ago" honest
   }
 
@@ -353,6 +373,10 @@ class Ambient {
     const t = theme();
     const f = m.file;
     const hailing = m.state === "hailing";
+    // Drawn even when empty, so that a line that appears later counts as a change and is typed out.
+    const doing = say(`say-card-${m.key}`, f?.activity ?? "", 14, t.muted, 500);
+    const ask = hailing ? f?.question?.text ?? "" : "";
+    const asking = say(`ask-card-${m.key}`, ask, 15, t.foreground, 600);
     return v_flex().id(`card-${m.key}`).flex_1().min_w(0).h_full().bg(t.surface).rounded(8).overflow_hidden().cursor_pointer()
       .border_1().border_color(hailing ? "#ffffff" : t.border)
       .on_click(() => goTo(m, true))
@@ -365,8 +389,8 @@ class Ambient {
         .child(txt(m.name.toUpperCase(), 12, t.muted, 700))
         .child(badge(m.state, 22))
         .when(Boolean(f?.milestone), (el) => el.child(txt(f.milestone, 16, t.foreground, 600).truncate()))
-        .when(Boolean(f?.activity), (el) => el.child(txt(f.activity, 14, t.muted, 500)))
-        .when(hailing && Boolean(f?.question), (el) => el.child(txt(f.question.text, 15, t.foreground, 600))));
+        .when(Boolean(f?.activity), (el) => el.child(doing))
+        .when(Boolean(ask), (el) => el.child(asking)));
   }
 
   chip(ship) {
