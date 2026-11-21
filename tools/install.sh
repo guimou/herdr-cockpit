@@ -51,7 +51,7 @@ echo "Installed mods/cockpit and layouts cockpit, cockpit-ambient into $home"
 # Put them back over the default roster that was just copied.
 if [ -f "$home/cockpit-roster.json" ]; then
   if command -v node >/dev/null 2>&1; then
-    HERDR_APP_HOME="$home" node "$repo/tools/crew.mjs" sync && echo "Restored your crew assignments"
+    HERDR_APP_HOME="$home" "$repo/tools/crew.mjs" sync && echo "Restored your crew assignments"
   else
     echo "node not found: your crew assignments were not restored. Run 'tools/crew.mjs sync' once node is available." >&2
   fi
