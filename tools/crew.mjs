@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON
 // Assigns crew to ships without editing any file by hand.
 //
 //   crew                                   show the roster
@@ -114,7 +114,7 @@ const [command = "list", ...rest] = words;
 
 if (opt.help || command === "help") {
   const text = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n");
-  console.log(text.slice(1, text.findIndex((l) => !l.startsWith("//") && l !== "#!/usr/bin/env node")).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
+  console.log(text.slice(1, text.findIndex((l) => !l.startsWith("//") && !l.startsWith("#!"))).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(0);
 }
 
