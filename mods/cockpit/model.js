@@ -474,13 +474,15 @@ async function readAll() {
     if (!cwd) continue;
     await provision(cwd, sp?.machine);
     const alone = all.filter((x) => x.space === a.space).length === 1;
+    // Every name here can only be this agent's, so the last one written is the one it
+    // is writing now: an agent changes file when the script changes its naming, and the
+    // file it leaves behind must not hide the new one. Equal times: the most certain name.
+    let best = null;
     for (const name of statusNames(a, terms, alone)) {
       const s = await read(`${cwd}/.cockpit/${name}`, sp?.machine);
-      if (s) {
-        out[a.address] = timed(s, before[a.address]);
-        break;
-      }
+      if (s && (!best || s.updated > best.updated)) best = s;
     }
+    if (best) out[a.address] = timed(best, before[a.address]);
     if (!out[a.address] && !alone) {
       const at = await sharedWrite(cwd, sp?.machine, polled);
       if (at >= firstSeen.get(a.address)) sharedOut[a.address] = at;
