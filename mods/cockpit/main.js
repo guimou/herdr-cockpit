@@ -1,18 +1,17 @@
 // Herdr Cockpit: projects are ships, agents are crew. One mod, several roles
 // (props.role), placed by layouts/cockpit.json and layouts/cockpit-ambient.json:
 //   rail     active view, left: crew portraits by ship, then ships without crew
-//   header   active view, top: the ship and crew member in front of you
-//   journal  active view, right: task or milestone, current activity, pending decision
-//   pane     active view, each pane's header: crew or HOST marker, pane buttons
+//   journal  active view, right: state, task or milestone, current activity, pending decision
+//   pane     active view, each pane's header: the ship and crew member (or HOST marker), pane buttons
 //   ambient  ambient view, whole window: four large crew cards and the fleet strip
 //   assign   a popup, opened by a right-click on a ship or crew member: who serves on this ship
 
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOverlay } from "herdr";
 import {
   fleet, slots, slotOf, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
-  roster, pollRoster, pollPoses, withAssigned, withUnassigned, saveRoster, openAssign,
+  roster, pollRoster, pollPoses, shareColors, withAssigned, withUnassigned, saveRoster, openAssign,
   COMPACT_BELOW, journalNarrow, toggleJournal,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
@@ -37,10 +36,11 @@ function settle(cx) {
 function own(cx, fromAmbient) {
   if (checking()) return;
   settle(cx);
-  cx.timer.every(POLL, () => { pollStatus(); pollRoster(); pollPoses(); });
+  cx.timer.every(POLL, () => { pollStatus(); pollRoster(); pollPoses(); shareColors(); });
   cx.spawn(async (cx) => {
     await pollPoses();
     await pollRoster();
+    shareColors();
     await pollStatus();
     for (;;) {
       handle(await nextCommand(), fromAmbient);
@@ -183,31 +183,6 @@ class Rail {
   }
 }
 
-// ------------------------------------------------------------------ header
-
-class Header {
-  init() {}
-
-  render() {
-    const t = theme();
-    const ships = fleet();
-    const m = current(ships);
-    const ship = m?.ship ?? activeShip(ships);
-    if (!ship) return div().size_full().bg(t.chrome);
-    let bar = h_flex().id("cockpit-header").size_full().bg(t.chrome).items_center().gap(14).pr(14)
-      .on_mouse_down("right", () => openAssign(ship))
-      .child(div().flex_none().w(6).h_full().bg(ship.color))
-      .child(txt(m ? callSign(m) : ship.name, 24, ship.color, 700).flex_none());
-    if (!m) return bar.child(txt(summary(ship), 13, t.muted).flex_1().min_w(0).truncate());
-    const p = m.file?.progress;
-    return bar
-      .child(txt(`${m.name}${m.program ? ` · ${m.program}` : ""}`, 12, t.muted).flex_none())
-      .child(badge(m.state, 12))
-      .child(txt(m.file?.milestone ?? "", 13, t.foreground, 600).flex_1().min_w(0).truncate())
-      .when(Boolean(p), (el) => el.child(txt(`${p.done}/${p.total}`, 12, t.muted, 600).flex_none()));
-  }
-}
-
 // ------------------------------------------------------------------ journal
 
 class Journal {
@@ -276,14 +251,16 @@ class Journal {
       return col.child(h_flex().items_center().child(heading("Journal").flex_1()).child(this.toggle(false)))
         .child(txt("No crew member in front of you.", 12, t.muted));
     }
+    const f = m.file;
+    // No names here: the pane header, at the same height, says whose journal this is.
     col = col.child(h_flex().gap(10).items_start()
       .child(feed(m, 64, `feed-journal-${m.key}`))
-      .child(v_flex().flex_1().min_w(0).gap(3)
-        .child(txt(callSign(m), 16, m.ship.color, 700).truncate())
-        .child(txt(m.name, 11, t.muted).truncate())
-        .child(badge(m.state, 11)))
+      .child(v_flex().flex_1().min_w(0).gap(4)
+        .child(badge(m.state, 12))
+        .when(Boolean(f?.milestone), (el) => el
+          .child(div().pt(4).child(heading(f.kind === "milestone" ? "Milestone" : "Task")))
+          .child(txt(f.milestone, 13, t.foreground, 600))))
       .child(this.toggle(false)));
-    const f = m.file;
     if (!f && m.sharedAt) {
       // Reports are arriving, but in the one file this ship's agents share.
       return col.child(this.section("Journal", v_flex().gap(6)
@@ -294,17 +271,15 @@ class Journal {
       return col.child(this.section("Journal",
         txt("This agent has not reported yet. Its task, current activity and pending question appear here once it pipes a status to .cockpit/report (see docs/agent-instructions.md).", 12, t.muted)));
     }
-    if (f.question) col = col.child(this.decision(m));
-    if (f.milestone) {
-      const p = f.progress;
+    const p = f.milestone ? f.progress : null;
+    if (p) {
       const W = 200;
-      col = col.child(this.section(f.kind === "milestone" ? "Milestone" : "Task", v_flex().gap(6)
-        .child(txt(f.milestone, 13, t.foreground, 600))
-        .when(Boolean(p), (el) => el.child(h_flex().gap(8).items_center()
-          .child(div().relative().flex_none().w(W).h(4).bg(t.border)
-            .child(div().absolute().left(0).top(0).h(4).w(Math.round(W * Math.min(1, p.done / p.total))).bg(m.ship.color)))
-          .child(txt(`${p.done}/${p.total} ${f.kind === "milestone" ? "issues" : "steps"}`, 11, t.muted))))));
+      col = col.child(h_flex().gap(8).items_center()
+        .child(div().relative().flex_none().w(W).h(4).bg(t.border)
+          .child(div().absolute().left(0).top(0).h(4).w(Math.round(W * Math.min(1, p.done / p.total))).bg(m.ship.color)))
+        .child(txt(`${p.done}/${p.total} ${f.kind === "milestone" ? "issues" : "steps"}`, 11, t.muted)));
     }
+    if (f.question) col = col.child(this.decision(m));
     if (f.activity) col = col.child(this.section("Now", txt(f.activity, 13, t.foreground, 500)));
     if (f.decisions.length) {
       col = col.child(this.section("Earlier decisions", v_flex().gap(4)
@@ -343,16 +318,25 @@ class PaneHead {
       div().id(`${key}-${me}`).flex_none().w(22).h(20).rounded(4).flex().items_center().justify_center()
         .font_family(MONO).text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover))
         .tooltip(tip).on_mouse_down("left", stop).on_click(() => run(command, { pane: me, ...args })).child(label);
-    const where = `${p.cwd ?? ""}${p.branch ? `  [${p.branch}]` : ""}`;
+    // A terminal's title is left out: an agent's is its session name, which says little after
+    // the first prompts, and a shell's is the path, shown next to it anyway. Nor the harness:
+    // Herdr's tab already shows its icon.
+    const label = p.terminal ? "" : p.title;
     return h_flex().id(`cockpit-pane-${me}`).size_full().bg(p.focused ? t.surface : t.chrome).items_center().gap(8).pr(6)
       .on_click(() => run("pane.focus", { pane: me }))
+      .when(Boolean(ship), (el) => el.on_mouse_down("right", () => openAssign(ship)))
       .child(div().flex_none().w(4).h_full().bg(ship?.color ?? t.border))
-      .when(Boolean(m), (el) => el
-        .child(txt(m.name, 12, m.ship.color, 700).flex_none())
-        .child(badge(m.state, 10)))
+      // Where you are: the ship, large for this strip, then who. The state is in the rail and the journal.
+      .when(Boolean(ship), (el) => el.child(txt(m ? callSign(m) : ship.name, 14, ship.color, 700).flex_none()))
+      .when(Boolean(m), (el) => el.child(txt(m.name, 12, t.foreground, 600).flex_none()))
       .when(!m && Boolean(p.terminal), (el) => el.child(this.host()))
-      .child(txt(p.title || p.program?.name || "", 12, t.foreground, 600).flex_none())
-      .child(txt(where, 11, t.dim).flex_1().min_w(0).truncate())
+      .when(Boolean(label), (el) => el.child(txt(label, 12, t.foreground, 600).flex_none()))
+      .child(h_flex().flex_1().min_w(0).gap(10).items_center().text_color(t.dim)
+        .child(txt(p.cwd ?? "", 11, t.dim).min_w(0).truncate())
+        // The same icon as Herdr's status bar, from a mod Herdr ships.
+        .when(Boolean(p.branch), (el) => el.child(h_flex().flex_none().gap(4).items_center()
+          .child(svg("mods/workspace-chrome/branch.svg").flex_none().size(12).text_color(ship?.color ?? t.dim))
+          .child(txt(p.branch, 11, t.dim)))))
       .child(h_flex().flex_none().gap(2)
         .child(btn("split-r", "|", "Split right", "pane.split", { direction: "right" }))
         .child(btn("split-d", "=", "Split down", "pane.split", { direction: "down" }))
@@ -452,7 +436,9 @@ class Assign {
     const t = theme();
     const here = ships[ship.key]?.crew ?? [];
     const seat = here.indexOf(id);
-    const posting = Object.values(ships).find((s) => s.crew.includes(id));
+    // Named and colored as the fleet shows it now; from the roster alone when its space is not open.
+    const [postKey, listed] = Object.entries(ships).find(([, s]) => s.crew.includes(id)) ?? [];
+    const posting = fleet().find((s) => s.key === postKey) ?? listed;
     // The thumbnail's frame is the color of the ship the crew member serves on now.
     const face = { name: CREW[id].name, state: "idle", ship: { color: posting?.color ?? t.border },
       portrait: CREW[id].portrait ? `mods/cockpit/crew/${CREW[id].portrait}-base.png` : null };
@@ -502,7 +488,7 @@ class Assign {
 
 // ------------------------------------------------------------------ the mod
 
-const ROLES = { rail: Rail, header: Header, journal: Journal, pane: PaneHead, ambient: Ambient, assign: Assign };
+const ROLES = { rail: Rail, journal: Journal, pane: PaneHead, ambient: Ambient, assign: Assign };
 
 export default class Cockpit extends View {
   init(p, cx) {

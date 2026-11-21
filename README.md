@@ -16,7 +16,7 @@ The journal and the finer states stay empty until your agents are told to report
 
 ## What is in it
 
-- **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), a header naming the ship and crew member in front of you, the terminals with a HOST marker on host-side panes, and a journal panel with the task or milestone, current activity and pending decision.
+- **Active view** (layout `cockpit`): crew rail on the left (portraits only when the sidebar is collapsed), the terminals, each under a pane header naming its ship and crew member (or a HOST marker on host-side panes), and a journal panel with the state, the task or milestone, current activity and pending decision.
 - **Ambient view** (layout `cockpit-ambient`): up to four large crew cards and the fleet strip, for a monitor you glance at.
 - **Finer states**: hailing, working, thinking, on subagents, on CI, done, standing by, asleep. Each has its own shape and motion as well as a caption.
 - **Crew with some life**: a crew member can have a portrait per state (`mods/cockpit/crew/<id>-<state>.png`, picked up within a minute; the base portrait is used for the states that have none). The feed glitches for a moment when the state changes, and a new activity line or question is typed out as the crew member reports in.
@@ -38,9 +38,9 @@ Not built yet: the fleet picker overlay, extra state sounds. The per-state portr
 
 ### Your fleet
 
-In the app, right-click a crew member or a ship in the rail (or the ship header, or press `alt-c`) to open the crew assignment menu: click someone to bring them aboard, and use Promote or Remove on the ship's own crew.
+In the app, right-click a crew member or a ship in the rail (or a pane header, or press `alt-c`) to open the crew assignment menu: click someone to bring them aboard, and use Promote or Remove on the ship's own crew.
 
-From a terminal, assign crew to ships with the `crew` tool (`tools/crew.mjs`; the installer links it as `crew` when `~/.local/bin` exists). A ship is a Herdr space, named as the space is.
+From a terminal, assign crew to ships with the `crew` tool (`tools/crew.mjs`; the installer links it as `crew` when `~/.local/bin` exists). A ship is a Herdr space, named as the space is: rename the space and the ship follows. `--name` gives it a different name to display.
 
 ```sh
 crew                                             # show the roster

@@ -128,7 +128,7 @@ const narrowRail = () => {
   }
 };
 const everything = () => {
-  for (const role of ["rail", "header", "journal", "ambient", null]) render(role);
+  for (const role of ["rail", "journal", "ambient", null]) render(role);
   for (const sp of world.spaces) render("assign", { ship: sp.id });
   render("assign", { ship: "gone" });
   narrowRail();
@@ -181,6 +181,19 @@ check("blocked agent is hailing", emauria.members[0].state === "hailing");
 check("idle agent waiting on subagents is not shown idle", emauria.members[1].state === "subagents");
 check("a task is shown where a milestone would be", emauria.members[1].file.milestone === "Fix the flaky login test" && emauria.members[1].file.kind === "task" && emauria.members[0].file.kind === "milestone");
 check("a lone agent may use status.json", ccbox.members[0].state === "thinking" && ccbox.members[0].file.question.text === "plain string question");
+world.shared["space.colors"] = { s1: "ansi6", gone: "ansi3" };
+model.shareColors();
+check("every space gets its ship's color for Herdr's own space avatars",
+  world.shared["space.colors"].s1 === "#4CC9F0" && world.shared["space.colors"].s3 === model.fleet()[2].color && world.shared["space.colors"].gone === "ansi3");
+world.spaces[0].name = "EMAURIA";
+world.spaces[1].name = "CCBox";
+const savedRoster = world.shared["cockpit.roster"];
+world.shared["cockpit.roster"] = { ...model.roster(), ccbox: { ...model.roster().ccbox, name: "Codebox" } };
+check("a listed ship follows its space's spelling, unless the roster gives it a name of its own",
+  model.fleet()[0].name === "EMAURIA" && model.fleet()[1].name === "Codebox" && model.fleet()[0].members.length === 2);
+world.spaces[0].name = "Emauria";
+world.spaces[1].name = "ccbox";
+world.shared["cockpit.roster"] = savedRoster;
 check("an unlisted ship keeps its space name and a palette color", jukebox.name === "agents-jukebox" && /^#/.test(jukebox.color) && jukebox.members[0].portrait === null);
 check("a broken status file is ignored", jukebox.members[0].file === null && jukebox.members[0].state === "idle");
 check("a ship without agents has no crew", litemaas.members.length === 0);

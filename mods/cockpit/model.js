@@ -8,6 +8,7 @@ export const STATUS_KEY = "cockpit.status"; // { [agent address]: status file co
 export const SHARED_KEY = "cockpit.sharedStatus"; // { [agent address]: when the status.json it shares with others was last written }
 export const SLOTS_KEY = "cockpit.slots"; // { "1": agent address, ... }
 export const ROSTER_KEY = "cockpit.roster"; // the ships of cockpit-roster.json, or unset for the default roster
+const COLORS_KEY = "space.colors"; // Herdr's own: { [space id]: a theme color name or "#rrggbb" }
 export const POSES_KEY = "cockpit.poses"; // { [portrait stem]: [the states that have a portrait of their own] }
 export const ACTIVE_LAYOUT = "cockpit";
 export const AMBIENT_LAYOUT = "cockpit-ambient";
@@ -62,7 +63,9 @@ export function fleet() {
     const ship = {
       id: sp.id,
       key,
-      name: cfg?.name ?? String(sp.name ?? "?"),
+      // The roster records a name with every ship. It only counts when it was chosen (crew ship
+      // --name), not when it is the space's name as it was spelled that day: a renamed space wins.
+      name: cfg?.name && cfg.name.toLowerCase() !== key ? cfg.name : String(sp.name ?? "?"),
       color: cfg?.color ?? autoColor(key),
       space: sp,
       members: [],
@@ -191,6 +194,18 @@ export async function pollRoster() {
 }
 
 const copy = (ships) => JSON.parse(JSON.stringify(ships));
+
+/**
+ * Gives every space its ship's color in "space.colors", the shared value Herdr's own mods
+ * draw space avatars from (the Ships panel's lettered tiles), so they match the crew.
+ * Herdr keeps a color that is already there and only fills in the missing ones.
+ */
+export function shareColors() {
+  const was = shared(COLORS_KEY) ?? {};
+  const next = { ...was };
+  for (const s of fleet()) next[s.id] = s.color;
+  if (JSON.stringify(next) !== JSON.stringify(was)) setShared(COLORS_KEY, next);
+}
 
 /** The roster with `id` seated on `ship` at seat `at` (default: the next free one). A crew member serves on one ship, so this moves them. */
 export function withAssigned(ships, id, ship, at) {
