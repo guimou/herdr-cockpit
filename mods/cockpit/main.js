@@ -11,7 +11,7 @@ import { h_flex, v_flex } from "gpui-base";
 import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOverlay } from "herdr";
 import {
   fleet, slots, slotOf, muster, pages, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
-  roster, pollRoster, pollPoses, shareColors, withAssigned, withUnassigned, saveRoster, openAssign,
+  roster, pollRoster, pollPoses, portraitOf, shareColors, withAssigned, withUnassigned, saveRoster, openAssign,
   COMPACT_BELOW, journalNarrow, toggleJournal, FOLDED, folded, toggleFold,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
@@ -543,9 +543,8 @@ class Assign {
     const [postKey, listed] = Object.entries(ships).find(([, s]) => s.crew.includes(id)) ?? [];
     const posting = fleet().find((s) => s.key === postKey) ?? listed;
     // The thumbnail's frame is the color of the ship the crew member serves on now.
-    const face = { name: CREW[id].name, state: "idle", ship: { color: posting?.color ?? t.border },
-      portrait: CREW[id].portrait ? `mods/cockpit/crew/${CREW[id].portrait}-base.png` : null };
-    let row = h_flex().id(`assign-${id}`).gap(8).p(6).rounded(6).items_center()
+    const face = { name: CREW[id].name, state: "idle", ship: { color: posting?.color ?? t.border }, portrait: portraitOf(CREW[id]) };
+    let row = h_flex().id(`assign-${id}`).flex_none().gap(8).p(6).rounded(6).items_center()
       .child(feed(face, 30, `assign-feed-${id}`));
     if (seat >= 0) {
       return row.bg(t.selected)
@@ -570,7 +569,7 @@ class Assign {
     const t = theme();
     const all = fleet();
     const ship = all.find((s) => s.id === props()?.ship) ?? activeShip(all);
-    let col = v_flex().id("cockpit-assign").w_full().min_h(0).p(8).gap(4).bg(t.popover ?? t.surface);
+    let col = v_flex().id("cockpit-assign").size_full().min_h(0).p(8).gap(4).bg(t.popover ?? t.surface);
     if (!ship) return col.child(txt("No ship selected.", 12, t.muted));
     const ships = roster();
     const here = (ships[ship.key]?.crew ?? []).filter((id) => CREW[id]);
@@ -580,11 +579,13 @@ class Assign {
         .child(div().flex_none().w(4).h(16).bg(ship.color))
         .child(txt(ship.name, 15, ship.color, 700).flex_1().min_w(0).truncate())
         .child(this.button("assign-close", "Close", "Close", () => closeOverlay(props()?.overlay))))
-      .child(div().px(6).child(heading(here.length ? "Crew of this ship" : "No crew yet")))
-      .children(here.map((id) => this.row(id, ship, ships)))
-      .when(Boolean(others.length), (el) => el
-        .child(div().px(6).pt(4).child(heading("Available")))
-        .children(others.map((id) => this.row(id, ship, ships))))
+      // The whole crew does not fit the popup: the list scrolls under the ship's name, as the rail does.
+      .child(v_flex().id("assign-list").flex_1().min_h(0).gap(4).overflow_y_scrollbar().mode("always")
+        .child(div().flex_none().px(6).child(heading(here.length ? "Crew of this ship" : "No crew yet")))
+        .children(here.map((id) => this.row(id, ship, ships)))
+        .when(Boolean(others.length), (el) => el
+          .child(div().flex_none().px(6).pt(4).child(heading("Available")))
+          .children(others.map((id) => this.row(id, ship, ships)))))
       .when(Boolean(this.error), (el) => el.child(div().px(6).child(txt(this.error, 11, t.foreground, 600))));
   }
 }

@@ -55,7 +55,7 @@ A crew member serves on one ship at a time, so assigning moves them. A ship name
 
 Your roster is saved in `~/.config/herdr-app/cockpit-roster.json`, outside the mod, so reinstalling keeps it. The menu and the tool both write that file, and the cockpit follows it within a few seconds; `mods/cockpit/roster.js` is the roster used when the file does not exist. The tool needs Node 22.7 or newer.
 
-Spaces that are not in the roster still appear, with their space name and an automatic color. To recruit a new crew member, add the portrait to `mods/cockpit/crew/` and an entry to `CREW` in [mods/cockpit/fleet.js](mods/cockpit/fleet.js), then run `tools/install.sh`.
+Spaces that are not in the roster still appear, with their space name and an automatic color. The crew has sixteen members. Those whose portrait is not in `mods/cockpit/crew/` yet are shown as the first letter of their name; [docs/crew-style-guide.md](docs/crew-style-guide.md) has the prompt to generate each one. To recruit beyond them, add the portrait and a name to `CREW` in [mods/cockpit/fleet.js](mods/cockpit/fleet.js), then run `tools/install.sh`.
 
 ## Documentation
 

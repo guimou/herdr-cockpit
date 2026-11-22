@@ -12,13 +12,16 @@ export { SHIPS } from "./roster.js";
 
 // Every crew member, assigned or not. `portrait` is the file stem in
 // mods/cockpit/crew/: <portrait>-base.png, 4:5. Add an entry here when you
-// recruit someone, then seat them with `tools/crew.mjs assign`.
-export const CREW = {
-  vega: { name: "Vega", portrait: "vega" },
-  orrin: { name: "Orrin", portrait: "orrin" },
-  brass: { name: "Brass", portrait: "brass" },
-  nyx: { name: "Nyx", portrait: "nyx" },
-};
+// recruit someone, then seat them with `tools/crew.mjs assign`. Until the
+// portrait file is there, the crew member is drawn as the first letter of
+// their name, so the names start with different letters.
+const recruit = (...names) => Object.fromEntries(names.map((name) => [name.toLowerCase(), { name, portrait: name.toLowerCase() }]));
+export const CREW = recruit(
+  "Vega", "Orrin", "Brass", "Nyx",
+  "Imara", "Kasper", "Juno", "Tane", "Hale", // humans
+  "Zephra", "Ulm", "Sorrel", "Ekko", // aliens
+  "Dot", "Rivet", "Lumen", // robots
+);
 
 // Colors for ships that have none of their own. They differ in lightness as
 // well as hue, and avoid the cyan and amber already taken.

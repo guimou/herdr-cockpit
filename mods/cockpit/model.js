@@ -9,7 +9,7 @@ export const SHARED_KEY = "cockpit.sharedStatus"; // { [agent address]: when the
 export const SLOTS_KEY = "cockpit.slots"; // { "1": agent address, ... }
 export const ROSTER_KEY = "cockpit.roster"; // the ships of cockpit-roster.json, or unset for the default roster
 const COLORS_KEY = "space.colors"; // Herdr's own: { [space id]: a theme color name or "#rrggbb" }
-export const POSES_KEY = "cockpit.poses"; // { [portrait stem]: [the states that have a portrait of their own] }
+export const POSES_KEY = "cockpit.poses"; // { [portrait stem]: ["base", and the states that have a portrait of their own] }
 export const ACTIVE_LAYOUT = "cockpit";
 export const AMBIENT_LAYOUT = "cockpit-ambient";
 
@@ -50,13 +50,24 @@ export function stateOf(agent, file) {
 
 // ---------------------------------------------------------------- fleet
 
+/**
+ * A crew member's picture: the one of this state when crew/ has it, the base one otherwise,
+ * and null (drawn as a monogram) for a recruit whose base portrait is not in crew/ yet.
+ */
+export function portraitOf(crew, state = "base") {
+  if (!crew?.portrait) return null;
+  const poses = shared(POSES_KEY) ?? {};
+  // An empty listing is one that was not read yet, or could not be: CREW is trusted until it is.
+  if (Object.keys(poses).length && !poses[crew.portrait]?.includes("base")) return null;
+  return `mods/cockpit/crew/${crew.portrait}-${poses[crew.portrait]?.includes(state) ? state : "base"}.png`;
+}
+
 /** Every space as a ship with its members (running agents, then empty seats). */
 export function fleet() {
   const all = agents().filter((a) => !a.parent);
   const files = shared(STATUS_KEY) ?? {};
   const sharedFiles = shared(SHARED_KEY) ?? {};
   const ships = roster();
-  const poses = shared(POSES_KEY) ?? {};
   return spaces().map((sp) => {
     const key = String(sp.name ?? "").toLowerCase();
     const cfg = ships[key];
@@ -78,8 +89,6 @@ export function fleet() {
       const crew = CREW[seats[i]] ?? null;
       const file = agent ? files[agent.address] ?? null : null;
       const state = stateOf(agent, file);
-      // The portrait of this state when the crew member has one, the base portrait otherwise.
-      const pose = poses[crew?.portrait]?.includes(state) ? state : "base";
       ship.members.push({
         // Set when this agent has no status of its own while one is being written to the file
         // it shares with the ship's other agents: the time of the last such write.
@@ -89,7 +98,7 @@ export function fleet() {
         ship,
         name: crew?.name ?? agent?.program?.name ?? "Crew",
         program: agent?.program?.name ?? "",
-        portrait: crew?.portrait ? `mods/cockpit/crew/${crew.portrait}-${pose}.png` : null,
+        portrait: portraitOf(crew, state),
         rank: n > 1 ? RANKS[i] ?? "" : "",
         file,
         state,
@@ -189,7 +198,7 @@ export async function pollPoses() {
     const { stdout } = await exec("ls", ["mods/cockpit/crew"], { cwd: appHome(), timeout: 5000 });
     const out = {};
     for (const [, stem, state] of String(stdout ?? "").matchAll(/^(.+)-([a-z]+)\.png$/gm)) {
-      if (STATES.includes(state)) (out[stem] ??= []).push(state);
+      if (state === "base" || STATES.includes(state)) (out[stem] ??= []).push(state);
     }
     if (JSON.stringify(out) !== JSON.stringify(shared(POSES_KEY) ?? {})) setShared(POSES_KEY, out);
   } catch {
@@ -256,7 +265,7 @@ export async function saveRoster(ships) {
 /** The crew assignment menu for a ship: a popup at the pointer, or a dialog when opened from a key. */
 export function openAssign(ship, kind = "popup") {
   if (!ship) return;
-  openOverlay({ mod: "cockpit", kind, width: 300, height: 460, props: { role: "assign", ship: ship.id } });
+  openOverlay({ mod: "cockpit", kind, width: 300, height: 560, props: { role: "assign", ship: ship.id } });
 }
 
 // ---------------------------------------------------------------- journal rail
