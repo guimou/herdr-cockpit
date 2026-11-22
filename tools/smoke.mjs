@@ -219,7 +219,9 @@ check("a ship without agents has no crew", litemaas.members.length === 0);
   world.crewDir = "vega-base.png\nvega-hailing.png\nvega-notastate.png\norrin-base.png\nREADME.md\n";
   await model.pollPoses();
   check("a portrait named after a state is used for that state", vega().state === "hailing" && vega().portrait.endsWith("/vega-hailing.png")
-    && JSON.stringify(world.shared["cockpit.poses"]) === '{"vega":["hailing"]}');
+    && JSON.stringify(world.shared["cockpit.poses"]) === '{"vega":["base","hailing"],"orrin":["base"]}');
+  check("a recruit whose portrait is not in crew/ yet is drawn as a monogram", model.portraitOf({ name: "Juno", portrait: "juno" }) === null
+    && model.portraitOf({ name: "Orrin", portrait: "orrin" }, "hailing").endsWith("/orrin-base.png"));
   check("nothing is fresh the first time it is drawn", !ui.fresh("x", "a", 1000) && !ui.fresh("x", "a", 1000));
   check("a change is fresh for a moment, and says when to draw again", ui.fresh("x", "b", 1000) && ui.fresh("x", "b", 1000) && ui.settleDue() > Date.now());
   // The rail and the cards were drawn with the previous line: the new one is typed out.

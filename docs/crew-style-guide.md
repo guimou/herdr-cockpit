@@ -82,6 +82,87 @@ Character: a weathered robot captain with a boxy brushed-metal head, a single la
 Character: an alien captain with an angular, narrow face, pale lavender skin, a crest of short dark quills in place of hair, and bright narrow eyes. Quick and inventive. Light asymmetrical flight suit with a raised collar. Accent color: violet (#B69CFF). Expression: a slight confident smile.
 ```
 
+## The twelve recruits
+
+Twelve more crew members bring the roster to sixteen: six humans, six aliens and four robots. They are already listed in `CREW` in `fleet.js`, so they can be assigned today; each one is drawn as the first letter of their name until `mods/cockpit/crew/<id>-base.png` exists (lowercase name, e.g. `imara-base.png`).
+
+Each block names an accent color so that it can be pasted as it is, and no two recruits look alike at thumbnail size (hair, skin, head shape). Two things depend on where the crew member will serve, so change them first when you already know:
+
+- **Accent color**: replace it with the ship's color (the `crew` command lists them). The portrait frame always takes the current ship's color, so a portrait made with another accent still works, only less matched.
+- **Rank bars**: two for a captain, one for a lieutenant. Every block below says two, since most ships have a single agent.
+
+### Imara (human)
+
+```
+Character: a human starship officer in her thirties with deep brown skin, close-cropped platinum-blond hair and high cheekbones, a small metal stud in one ear. Precise and unhurried. Charcoal fitted uniform jacket with a high collar and two rank bars on the collar. Accent color: green (#7BE0A0). Expression: calm, a hint of a smile.
+```
+
+### Kasper (human)
+
+```
+Character: a human starship officer in his sixties, bald, with a full, neatly trimmed white beard, pale weathered skin, deep lines around pale blue eyes and bushy white eyebrows. Gruff but kind, a veteran. Heavy dark wool officer's coat with a turned-up collar and two rank bars on the collar. Accent color: rose (#FF8FA3). Expression: steady, one eyebrow slightly raised.
+```
+
+### Juno (human)
+
+```
+Character: a human starship engineer in her twenties with copper-red hair tied up in a messy high bun, a freckled fair face, green eyes, and round engineer's goggles pushed up on her forehead. Energetic and resourceful. Rust-brown work jacket with a high collar over a dark undershirt, two rank bars on the collar, a faint grease smudge on one cheek. Accent color: yellow (#E8E36B). Expression: bright, eager half-smile.
+```
+
+### Tane (human)
+
+```
+Character: a broad-shouldered human starship officer in his forties with warm brown skin, long black hair tied back tightly, a short black beard, and a small cybernetic plate over his left temple with a single pinpoint light in the accent color. Quiet and immovable. Dark armored flight vest with a high collar and two rank bars on the collar. Accent color: blue (#6F8CFF). Expression: serious, watchful.
+```
+
+### Hale (human)
+
+```
+Character: a human science officer in her fifties with a sharp silver chin-length bob, light olive skin, dark almond-shaped eyes behind thin round wire glasses, and a slender face. Dry-witted and exact. Pale grey high-collared lab tunic with two rank bars on the collar. Accent color: peach (#FFB38A). Expression: appraising, lips slightly pursed.
+```
+
+### Zephra (alien)
+
+```
+Character: an amphibian-like alien officer with smooth, glossy teal-green skin mottled with darker spots, very wide-set golden eyes with horizontal pupils, no nose bridge, and translucent fin-like frills where ears would be. Serene and observant. Dark wetsuit-like uniform with a high collar and two rank bars on the collar. Accent color: teal (#5FD4C4). Expression: placid, head very slightly tilted.
+```
+
+### Ulm (alien)
+
+```
+Character: a massive alien officer whose skin looks like cracked grey-brown stone, with a wide heavy brow, small deep-set eyes that glow faintly in the accent color, a broad flat nose, no hair and almost no neck. Slow, patient and gentle. A thick dark uniform stretched over huge shoulders, high collar with two rank bars. Accent color: orchid (#D98BE8). Expression: impassive, kindly.
+```
+
+### Sorrel (alien)
+
+```
+Character: a fox-like alien officer covered in short russet fur with a cream-colored muzzle and throat, tall pointed ears with dark tips, a small dark nose and large amber eyes with vertical pupils. Quick, sly and warm. Dark green fitted flight jacket with a high collar and two rank bars on the collar. Accent color: green (#7BE0A0). Expression: alert, ears up, a knowing look.
+```
+
+### Ekko (alien)
+
+```
+Character: an insect-like alien officer with a smooth face of pearl-white chitin plates, four small glossy black eyes (two large, two smaller above them), no visible mouth, delicate mandible seams along the jaw, and two long thin antennae curving back from the forehead. Methodical and polite. Slim black uniform with a high collar and two rank bars on the collar. Accent color: rose (#FF8FA3). Posture: upright, antennae slightly forward.
+```
+
+### Dot (robot)
+
+```
+Character: a small friendly robot officer with a smooth, rounded white ceramic head and a dark glass visor across the face, on which two simple round eyes are displayed as glowing lights in the accent color. Clean panel seams, no mouth, a small sensor nub on one side of the head. Cheerful and tireless. A short dark uniform collar with two rank bars fitted around a slim white neck joint. Accent color: yellow (#E8E36B), also the color of the eyes. Posture: head tilted a little, eyes wide and round.
+```
+
+### Rivet (robot)
+
+```
+Character: a heavy industrial robot officer with a wide, angular gunmetal head, chipped yellow-and-black hazard stripes along one side, a narrow horizontal visor slit glowing in the accent color, thick hydraulic pistons at the neck and two short exhaust stacks behind the shoulders. Blunt and reliable. A scorched dark shoulder mantle bolted over the chassis, with two rank bars welded to the collar plate. Accent color: blue (#6F8CFF), also the color of the visor glow. Posture: square to the camera, head slightly lowered.
+```
+
+### Lumen (robot)
+
+```
+Character: a slender, elegant robot officer with a tall, polished copper oval head and no facial features except a single thin vertical line of light in the accent color, a long neck of fine brass rings, and translucent smoked-glass panels at the temples showing tiny moving mechanisms. Graceful and soft-spoken. A dark draped high-collared robe with two rank bars on the collar. Accent color: teal (#5FD4C4), also the color of the line of light. Posture: poised, head inclined slightly forward.
+```
+
 ## State variants
 
 The reference is the base portrait itself, not the chat it came from. Open a new chat for each crew member, attach `mods/cockpit/crew/<id>-base.png`, and send:
@@ -131,5 +212,6 @@ done
 2. Write a character block: species (human, alien or robot), two or three distinctive visual traits, outfit, rank bars (two for a captain, one for a lieutenant), accent color, default expression.
 3. Generate the base portrait, save it as `<id>-base.png`, then generate the "hailing" variant from it first to check the face stays consistent.
 4. Generate the remaining states and save them with the naming above.
+5. For a crew member beyond the sixteen, add the name to `CREW` in `mods/cockpit/fleet.js`.
 
-Names, species and looks of the four characters above can be changed freely.
+Names, species and looks of all sixteen characters can be changed freely. A new name needs its own first letter: a crew member without a portrait is drawn as that letter.

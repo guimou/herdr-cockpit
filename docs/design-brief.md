@@ -32,7 +32,7 @@ Mockups: https://claude.ai/artifact/JnnG6dYDPEBd1Xut9aqN8j with five boards: amb
 - Each project (Herdr space) is a ship with its own color.
 - Each agent is a crew member, shown as a portrait. Crew can be humans, aliens or robots, and are created when a project gets an agent. Crew may be reassigned to another ship; the portrait frame takes the color of the current ship.
 - A ship can have any number of crew, including none.
-- Current crew: Vega (human) and Orrin (alien) on Emauria, Brass (robot) on ccbox, Nyx (alien) on Demo lab, a sample project.
+- Current crew, sixteen in all so that assignments can stay put: Vega (human) and Orrin (alien) on Emauria, Brass (robot) on ccbox, Nyx (alien) on Demo lab, a sample project, and twelve recruits to assign (humans Imara, Kasper, Juno, Tane, Hale; aliens Zephra, Ulm, Sorrel, Ekko; robots Dot, Rivet, Lumen).
 
 ### Naming
 - The ship name is the large, colored label everywhere. It matters more than the crew name: the portrait identifies the crew member, and the crew name appears only in the small caption under the portrait.
