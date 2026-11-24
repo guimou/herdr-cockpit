@@ -35,17 +35,18 @@ Mockups: https://claude.ai/artifact/JnnG6dYDPEBd1Xut9aqN8j with five boards: amb
 - Current crew, sixteen in all so that assignments can stay put: Vega (human) and Orrin (alien) on Emauria, Brass (robot) on ccbox, Nyx (alien) on Demo lab, a sample project, and twelve recruits to assign (humans Imara, Kasper, Juno, Tane, Hale; aliens Zephra, Ulm, Sorrel, Ekko; robots Dot, Rivet, Lumen).
 
 ### Naming
-- The ship name is the large, colored label everywhere. It matters more than the crew name: the portrait identifies the crew member, and the crew name appears only in the small caption under the portrait.
+- The ship name is the large, colored label everywhere. It matters more than the crew name: the portrait identifies the crew member, and the crew name appears only in the small caption beside the portrait.
 - Ranks are shown only when a ship has more than one crew member, as a short suffix on the ship name: "Emauria, Cpt.", "Emauria, Lt.", and "Ens." for a third. A ship with one crew member shows its name alone.
+- A ship on this computer carries a monitor icon, one on a machine added with `hc machine add` a server icon, beside its name wherever it appears: rail, pane header, ambient card and fleet strip. The server icon is brighter, so ships on the other machine stand out; its tooltip names the machine.
 
 ### Agent card
 In order of how fast each item should register:
-1. Ship: color and large name (with rank suffix when needed).
-2. Crew portrait in a comm-feed frame.
-3. State.
-4. Milestone name (not issue names).
-5. One line on what the agent is doing at a high level, written by the agent.
-6. If blocked: the pending question, with options and a recommendation.
+1. Ship: color and large name (with rank suffix when needed), beside the portrait at the top left.
+2. Crew portrait in a comm-feed frame, at the top left.
+3. State, with the crew name, beside the portrait.
+4. Milestone name (not issue names), under the state.
+5. One line on what the agent is doing at a high level, written by the agent, across the card below.
+6. If blocked: the pending question, with options and a recommendation, below the activity.
 
 Optional: milestone progress as issues closed out of total.
 

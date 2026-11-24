@@ -15,7 +15,7 @@ import {
   COMPACT_BELOW, journalNarrow, toggleJournal, FOLDED, folded, toggleFold, ASSIGN_HEIGHT,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
-import { txt, say, heading, badge, mark, feed, settleDue, stop, MONO } from "./ui.js";
+import { txt, say, heading, badge, mark, feed, hostMark, settleDue, stop, MONO } from "./ui.js";
 
 const POLL = 3000;
 
@@ -165,6 +165,7 @@ class Rail {
       .child(v_flex().flex_1().min_w(0).gap(2)
         .child(h_flex().gap(6).items_center()
           .child(txt(callSign(m), 14, m.agent ? m.ship.color : t.muted, 700).flex_1().min_w(0).truncate())
+          .child(hostMark(m.ship, 12))
           .when(Boolean(m.agent), (el) => el.child(slotKey(slotOf(m, groups), m.ship.color))))
         .child(txt(m.name, 11, t.muted, 500).truncate())
         .child(badge(m.state, 10))
@@ -181,7 +182,9 @@ class Rail {
       .on_click(() => run("space.select", { id: ship.id }))
       .on_mouse_down("right", () => openAssign(ship))
       .child(div().flex_none().w(4).h(14).bg(ship.color))
-      .child(txt(ship.name, 13, ship.color, 700).flex_1().min_w(0).truncate())
+      .child(h_flex().flex_1().min_w(0).gap(6).items_center()
+        .child(txt(ship.name, 13, ship.color, 700).flex_1().min_w(0).truncate())
+        .child(hostMark(ship, 12)))
       .child(txt(tabsLine(ship), 11, t.dim, 500).flex_none());
   }
 
@@ -352,6 +355,7 @@ class PaneHead {
       .child(div().flex_none().w(4).h_full().bg(ship?.color ?? t.border))
       // Where you are: the ship, large for this strip, then who. The state is in the rail and the journal.
       .when(Boolean(ship), (el) => el.child(txt(m ? callSign(m) : ship.name, 14, ship.color, 700).flex_none()))
+      .when(Boolean(ship), (el) => el.child(hostMark(ship, 12)))
       .when(Boolean(m), (el) => el.child(txt(m.name, 12, t.foreground, 600).flex_none()))
       .when(!m && Boolean(p.terminal), (el) => el.child(this.host()))
       .when(Boolean(label), (el) => el.child(txt(label, 12, t.foreground, 600).flex_none()))
@@ -382,7 +386,6 @@ class Ambient {
     this.page = 0;
     this.pages = 1;
     this.pinned = null; // the page whose switch is on: it stays up, and the pages stop turning
-    this.room = new Map(); // member key -> the space its card has for the portrait, as last measured
     own(cx, true);
     if (checking()) return;
     cx.timer.every(TURN, (cx) => {
@@ -405,25 +408,22 @@ class Ambient {
       .border_1().border_color(hailing ? "#ffffff" : t.border)
       .on_click(() => goTo(m, true))
       .child(div().flex_none().h(8).bg(m.ship.color))
-      .child(v_flex().flex_1().min_h(0).p(small ? 12 : 18).gap(small ? 8 : 12)
-        .child(h_flex().flex_none().gap(10).items_center()
-          .child(txt(callSign(m), small ? 26 : 38, m.ship.color, 700).flex_1().min_w(0).truncate())
-          .child(slotKey(n, m.ship.color)))
-        // The text keeps its height; the portrait gets what is left, and that is measured
-        // so render() can size the portrait to fit instead of guessing the text's height.
-        .child(h_flex().flex_1().min_h(0).justify_center().items_center().overflow_hidden()
-          .on_size_change((size, cx) => {
-            const was = this.room.get(m.key);
-            if (was?.w === size.width && was?.h === size.height) return;
-            this.room.set(m.key, { w: size.width, h: size.height });
-            cx.notify();
-          })
-          .child(feed(m, w, `feed-card-${m.key}`)))
-        .child(txt(m.name.toUpperCase(), 12, t.muted, 700).flex_none())
-        .child(badge(m.state, small ? 16 : 22))
-        .when(Boolean(f?.milestone), (el) => el.child(txt(f.milestone, small ? 14 : 16, t.foreground, 600).flex_none().truncate()))
-        .when(Boolean(f?.activity), (el) => el.child(doing.flex_none()))
-        .when(Boolean(ask), (el) => el.child(asking.flex_none())));
+      // Portrait at the top left; who and what state beside it, so the picture does not
+      // take a whole row of height from the text. The report's details get the width below.
+      .child(v_flex().flex_1().min_h(0).p(small ? 12 : 18).gap(small ? 10 : 14)
+        .child(h_flex().flex_none().gap(small ? 10 : 14).items_start()
+          .child(feed(m, w, `feed-card-${m.key}`))
+          .child(v_flex().flex_1().min_w(0).gap(4)
+            .child(h_flex().gap(8).items_center()
+              .child(txt(callSign(m), small ? 24 : 32, m.ship.color, 700).flex_1().min_w(0).truncate())
+              .child(hostMark(m.ship, small ? 12 : 14))
+              .child(slotKey(n, m.ship.color)))
+            .child(txt(m.name.toUpperCase(), 12, t.muted, 700))
+            .child(badge(m.state, small ? 16 : 20))
+            .when(Boolean(f?.milestone), (el) => el.child(txt(f.milestone, small ? 14 : 16, t.foreground, 600)))))
+        .child(v_flex().flex_1().min_h(0).gap(6)
+          .when(Boolean(f?.activity), (el) => el.child(doing))
+          .when(Boolean(ask), (el) => el.child(asking))));
   }
 
   chip(ship) {
@@ -433,7 +433,9 @@ class Ambient {
       .border_1().border_color(crewed ? ship.color : t.border)
       .hover((s) => s.bg(t.hover))
       .on_click(() => { run("layout.switch", { name: "cockpit" }); run("space.select", { id: ship.id }); })
-      .child(txt(ship.name, 15, crewed ? ship.color : t.muted, 700))
+      .child(h_flex().gap(6).items_center()
+        .child(txt(ship.name, 15, crewed ? ship.color : t.muted, 700))
+        .child(hostMark(ship, 12)))
       .child(txt(summary(ship), 11, t.dim, 500));
   }
 
@@ -476,13 +478,15 @@ class Ambient {
     const rows = shown.length > 4 ? 2 : 1;
     const cols = Math.ceil(shown.length / rows) || 1;
     const small = rows > 1;
-    // Portrait size: the same on every card, from the card with the least room for it (the
-    // one with the most text). Until a card has been measured, an estimate from the window.
+    // Portrait size: the same on every card, from the window's card size. It takes about a
+    // third of the card's width, but no more than leaves the details below some height.
     const cardW = (this.width - 16 * (cols + 1)) / cols;
     const cardH = (this.height - 16 * (rows + 2) - (decks.length > 1 ? SWITCHES : STRIP)) / rows;
-    const guess = Math.min(cardW - 60, (cardH - (small ? 210 : 260)) / 1.25);
-    const fits = shown.map((m) => this.room.get(m.key)).map((r) => (r ? Math.min(r.w, r.h / 1.25) : guess));
-    const w = Math.floor(Math.max(48, Math.min(300, ...fits)));
+    const pad = small ? 12 : 18;
+    const scale = small ? 84 : 112; // the caption block and one detail line, for the height cap
+    const fitW = Math.max(0, cardW - 2 * pad) * 0.3;
+    const fitH = Math.max(0, cardH - 8 - 2 * pad - scale) / 1.25;
+    const w = Math.floor(Math.max(32, Math.min(180, fitW, fitH > 40 ? fitH : 32)));
     const row = (r) => {
       const cards = shown.slice(r * cols, (r + 1) * cols).map((m) => this.card(m, slotOf(m, groups), w, small));
       while (cards.length < cols) cards.push(div().flex_1().min_w(0));
@@ -576,6 +580,7 @@ class Assign {
       .child(h_flex().gap(8).items_center().px(6).pt(2)
         .child(div().flex_none().w(4).h(16).bg(ship.color))
         .child(txt(ship.name, 15, ship.color, 700).flex_1().min_w(0).truncate())
+        .child(hostMark(ship, 12))
         .child(this.button("assign-close", "Close", "Close", () => closeOverlay(props()?.overlay))))
       // The whole crew does not fit the popup: the list scrolls under the ship's name, as the rail does.
       .child(v_flex().id("assign-list").flex_1().min_h(0).gap(4).overflow_y_scrollbar().mode("always")
