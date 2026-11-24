@@ -240,6 +240,11 @@ world.agents = world.agents.filter((a) => a.space !== "s1");
 await model.pollStatus();
 everything();
 check("seats without a running agent are asleep", model.fleet()[0].members.every((m) => m.state === "asleep"));
+world.ran.length = 0;
+model.goTo(model.fleet()[0].members[0]);
+check("the asleep seats of the shown ship are where you are, not those of another ship",
+  model.fleet()[0].members.every(model.inFront) && !model.fleet().slice(1).flatMap((s) => s.members).some((m) => !m.agent && model.inFront(m)));
+check("going to an asleep seat opens its ship", world.ran.length === 1 && world.ran[0][0] === "space.select" && world.ran[0][1].id === "s1");
 
 // 4. Keys.
 world.agents = [agent("t3", "s1", "idle", true), agent("t5", "s2", "blocked"), agent("t7", "s3", "done")];
