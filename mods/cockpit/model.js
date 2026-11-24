@@ -129,6 +129,11 @@ export const activeShip = (ships) => ships.find((s) => s.space.active) ?? null;
 
 export const PER_PAGE = 8; // two rows of four on the ambient view, and as many control groups
 
+// The crew assignment menu's size. Herdr sizes a popup to its content, where a flex_1
+// list has no height to fill and collapses to just the header: the view pins the
+// height itself instead (Assign.render), and the list scrolls inside it.
+export const ASSIGN_HEIGHT = 560;
+
 /** Control groups 1-8: explicit bindings first, then the remaining crew in fleet order. */
 export function slots(ships) {
   const awake = ships.flatMap((s) => s.members.filter((m) => m.agent));
@@ -273,7 +278,7 @@ export async function saveRoster(ships) {
 /** The crew assignment menu for a ship: a popup at the pointer, or a dialog when opened from a key. */
 export function openAssign(ship, kind = "popup") {
   if (!ship) return;
-  openOverlay({ mod: "cockpit", kind, width: 300, height: 560, props: { role: "assign", ship: ship.id } });
+  openOverlay({ mod: "cockpit", kind, width: 300, height: ASSIGN_HEIGHT, props: { role: "assign", ship: ship.id } });
 }
 
 // ---------------------------------------------------------------- journal rail

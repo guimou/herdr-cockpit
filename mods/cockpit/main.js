@@ -12,7 +12,7 @@ import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOv
 import {
   fleet, slots, slotOf, muster, pages, current, activeShip, inFront, callSign, goTo, handle, pollStatus, ago, LABEL,
   roster, pollRoster, pollPoses, portraitOf, shareColors, withAssigned, withUnassigned, saveRoster, openAssign,
-  COMPACT_BELOW, journalNarrow, toggleJournal, FOLDED, folded, toggleFold,
+  COMPACT_BELOW, journalNarrow, toggleJournal, FOLDED, folded, toggleFold, ASSIGN_HEIGHT,
 } from "./model.js";
 import { CREW, RANKS } from "./fleet.js";
 import { txt, say, heading, badge, mark, feed, settleDue, stop, MONO } from "./ui.js";
@@ -565,7 +565,9 @@ class Assign {
     const t = theme();
     const all = fleet();
     const ship = all.find((s) => s.id === props()?.ship) ?? activeShip(all);
-    let col = v_flex().id("cockpit-assign").size_full().min_h(0).p(8).gap(4).bg(t.popover ?? t.surface);
+    // Pinned, not size_full: a popup is as tall as its content, and the scrolling list
+    // below is flex_1, which needs a height to fill or it draws nothing.
+    let col = v_flex().id("cockpit-assign").w_full().min_h(ASSIGN_HEIGHT).p(8).gap(4).bg(t.popover ?? t.surface);
     if (!ship) return col.child(txt("No ship selected.", 12, t.muted));
     const ships = roster();
     const here = (ships[ship.key]?.crew ?? []).filter((id) => CREW[id]);
