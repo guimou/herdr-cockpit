@@ -117,6 +117,14 @@ export function current(ships) {
   return awake.find((m) => m.agent.focused) ?? awake.find((m) => m.ship.space.active) ?? null;
 }
 
+/**
+ * Whether a rail tile is where the person is: the focused agent, or an asleep seat of the
+ * shown ship, unless a crewmate there is focused (then that one tile says it).
+ */
+export const inFront = (m) => (m.agent
+  ? Boolean(m.agent.focused)
+  : Boolean(m.ship.space.active) && !m.ship.members.some((x) => x.agent?.focused));
+
 export const activeShip = (ships) => ships.find((s) => s.space.active) ?? null;
 
 export const PER_PAGE = 8; // two rows of four on the ambient view, and as many control groups
@@ -317,9 +325,11 @@ export function toggleFold(id) {
 // ---------------------------------------------------------------- actions
 
 export function goTo(member, fromAmbient = false) {
-  if (!member?.agent) return;
+  if (!member) return;
   if (fromAmbient) run("layout.switch", { name: ACTIVE_LAYOUT });
-  run("agent.focus", { terminal: member.agent.address });
+  // An asleep seat has no terminal to go to: open its ship, where the agent can be launched.
+  if (member.agent) run("agent.focus", { terminal: member.agent.address });
+  else run("space.select", { id: member.ship.id });
 }
 
 /** One key command from keys.json: crew1..8, bind1..8, hail, assign, journal, foldcrew, foldships. */

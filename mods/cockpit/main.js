@@ -10,7 +10,7 @@ import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, theme, panes, run, nextCommand, setAgentOrder, checking, closeOverlay } from "herdr";
 import {
-  fleet, slots, slotOf, muster, pages, current, activeShip, callSign, goTo, handle, pollStatus, ago, LABEL,
+  fleet, slots, slotOf, muster, pages, current, activeShip, inFront, callSign, goTo, handle, pollStatus, ago, LABEL,
   roster, pollRoster, pollPoses, portraitOf, shareColors, withAssigned, withUnassigned, saveRoster, openAssign,
   COMPACT_BELOW, journalNarrow, toggleJournal, FOLDED, folded, toggleFold,
 } from "./model.js";
@@ -80,13 +80,11 @@ class Rail {
   /** Collapsed sidebar: the portrait alone, as wide as the rail allows, with the state mark under it. */
   compactMember(m, w) {
     const t = theme();
-    const here = Boolean(m.agent?.focused);
-    let cell = v_flex().id(`crew-${m.key}`).flex_none().items_center().gap(3).px(2).py(3).rounded(5)
+    const here = inFront(m);
+    const cell = v_flex().id(`crew-${m.key}`).flex_none().items_center().gap(3).px(2).py(3).rounded(5)
       .bg(here ? t.selected : "#00000000")
-      .tooltip(`${callSign(m)} · ${m.name}${m.program ? ` (${m.program})` : ""} · ${LABEL[m.state] ?? m.state}`);
-    if (m.agent) {
-      cell = cell.cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover)).on_click(() => goTo(m));
-    }
+      .tooltip(`${callSign(m)} · ${m.name}${m.program ? ` (${m.program})` : ""} · ${LABEL[m.state] ?? m.state}${m.agent ? "" : " · click to open the ship"}`)
+      .cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover)).on_click(() => goTo(m));
     return cell.on_mouse_down("right", () => openAssign(m.ship))
       .child(feed(m, w, `feed-rail-${m.key}`))
       .child(h_flex().flex_none().h(12).items_center().justify_center().child(mark(m.state, 9)));
@@ -152,14 +150,12 @@ class Rail {
 
   member(m, groups) {
     const t = theme();
-    const here = Boolean(m.agent?.focused);
-    let row = h_flex().id(`crew-${m.key}`).flex_none().gap(8).p(6).rounded(6).items_center()
-      .bg(here ? t.selected : "#00000000");
-    if (m.agent) {
-      row = row.cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover))
-        .tooltip(`${callSign(m)} · ${m.name}${m.program ? ` (${m.program})` : ""}`)
-        .on_click(() => goTo(m));
-    }
+    const here = inFront(m);
+    const row = h_flex().id(`crew-${m.key}`).flex_none().gap(8).p(6).rounded(6).items_center()
+      .bg(here ? t.selected : "#00000000")
+      .cursor_pointer().hover((s) => s.bg(here ? t.selected : t.hover))
+      .tooltip(`${callSign(m)} · ${m.name}${m.agent ? (m.program ? ` (${m.program})` : "") : " · click to open the ship"}`)
+      .on_click(() => goTo(m)); // asleep: opens the ship, to launch the agent there
     // What the crew member is saying: their question when they hail you, else what they are doing.
     const asking = m.state === "hailing" && Boolean(m.file?.question?.text);
     const line = m.state === "asleep" ? "" : asking ? m.file.question.text : m.file?.activity ?? "";
