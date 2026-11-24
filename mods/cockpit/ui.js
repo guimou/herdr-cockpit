@@ -2,10 +2,10 @@
 // Ship identity is carried by color. State is carried by shape, motion and a
 // caption, never by color alone.
 
-import { div, image } from "gpui-kit";
+import { div, image, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { theme } from "herdr";
-import { LABEL } from "./model.js";
+import { LABEL, hostOf } from "./model.js";
 
 export const MONO = "JetBrains Mono"; // ships with Herdr
 const SIGNAL = "#ffffff";
@@ -84,6 +84,18 @@ export function badge(state, size = 12) {
   return h_flex().flex_none().gap(Math.round(size / 2)).items_center()
     .child(mark(state, size))
     .child(txt(LABEL[state] ?? state, size, quiet ? t.muted : t.foreground, 700));
+}
+
+/**
+ * Local or remote: a monitor for this computer, a server for a machine added with
+ * `hc machine add`. Shape tells them apart, and the tooltip names the machine.
+ */
+export function hostMark(ship, size = 12) {
+  const t = theme();
+  const machine = hostOf(ship);
+  return svg(machine ? "mods/workspace-chrome/server.svg" : "mods/workspace-chrome/monitor.svg")
+    .flex_none().size(size).text_color(machine ? t.foreground : t.muted)
+    .tooltip(machine ? `Remote: ${machine}` : "On this computer");
 }
 
 /**

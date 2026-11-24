@@ -111,6 +111,9 @@ export function fleet() {
 /** "Emauria, Cpt." when the ship has several crew, "Emauria" otherwise. */
 export const callSign = (m) => (m.rank ? `${m.ship.name}, ${m.rank}` : m.ship.name);
 
+/** The machine a ship lives on: null for this computer, else its `hc machine add` name. */
+export const hostOf = (ship) => ship.space?.machine ?? null;
+
 /** The member in front of the person: the focused agent, else one in the shown space. */
 export function current(ships) {
   const awake = ships.flatMap((s) => s.members.filter((m) => m.agent));

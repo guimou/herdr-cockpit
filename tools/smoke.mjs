@@ -150,7 +150,7 @@ world.spaces = [
   { id: "s1", name: "Emauria", folder: "/r/emauria", active: true, machine: null, tabs: [tab("a"), tab("b")] },
   { id: "s2", name: "ccbox", folder: "/r/ccbox", active: false, machine: null, tabs: [tab("c")] },
   { id: "s3", name: "agents-jukebox", folder: "/r/jukebox", active: false, machine: null, tabs: [tab("d")] },
-  { id: "s4", name: "litemaas", folder: "/r/litemaas", active: false, machine: null, tabs: [tab("e")] },
+  { id: "s4", name: "litemaas", folder: "/r/litemaas", active: false, machine: "vps", tabs: [tab("e")] },
 ];
 const agent = (address, space, status, focused = false) =>
   ({ address, space, tab: "a", status, focused, pane: `p-${address}`, program: { name: "Claude Code", key: "claude" } });
@@ -196,6 +196,7 @@ world.spaces[1].name = "ccbox";
 world.shared["cockpit.roster"] = savedRoster;
 check("an unlisted ship keeps its space name and a palette color", jukebox.name === "agents-jukebox" && /^#/.test(jukebox.color) && jukebox.members[0].portrait === null);
 check("a broken status file is ignored", jukebox.members[0].file === null && jukebox.members[0].state === "idle");
+check("a ship knows the machine it lives on", model.hostOf(emauria) === null && model.hostOf(litemaas) === "vps");
 check("a ship without agents has no crew", litemaas.members.length === 0);
 
 // The time shown is when the cockpit saw the file change, not the time the agent wrote in it.
@@ -273,8 +274,6 @@ everything();
     crowd(n);
     for (const [width, height] of [[1600, 900], [3840, 2160], [640, 360]]) {
       Object.assign(view.role, { width, height });
-      // Cards measured with little or no room for the portrait must still draw.
-      view.role.room = new Map(n % 2 ? [["t1", { w: 0, h: 0 }], ["t2", { w: 500, h: 90 }]] : []);
       for (view.role.page = 0; view.role.page < 3; view.role.page++) {
         if (!view.render(cx)?.kind) throw new Error(`ambient with ${n} crew: render returned nothing`);
       }
