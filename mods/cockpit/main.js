@@ -474,8 +474,9 @@ class Ambient {
     const at = this.page % decks.length;
     const shown = decks[at];
     setAgentOrder(decks.flat().map((m) => m.agent.address));
-    // One row up to four crew, two rows up to eight; a short second row keeps the columns.
-    const rows = shown.length > 4 ? 2 : 1;
+    // One row up to two crew, two rows up to eight: three or four in one row would be too
+    // wide to read from a distance. A short second row keeps the columns.
+    const rows = shown.length > 2 ? 2 : 1;
     const cols = Math.ceil(shown.length / rows) || 1;
     const small = rows > 1;
     // Portrait size: the same on every card, from the window's card size. It takes about a
