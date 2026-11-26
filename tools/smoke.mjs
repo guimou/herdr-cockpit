@@ -26,18 +26,21 @@ const stub = (name, source) => {
 // mistakes that would crash a real render.
 const element = `
 const el = (kind) => {
-  const node = { kind, kids: 0 };
+  const node = { kind, kids: 0, childList: [] };
   const proxy = new Proxy(node, {
     get(target, key) {
       if (key in target || typeof key === "symbol" || key === "then") return target[key];
       return (...args) => {
+        if (key === "id") target.id = args[0];
         if (key === "child") {
           if (args[0] === undefined || args[0] === null) throw new Error(kind + ".child() got " + args[0]);
           target.kids++;
+          target.childList.push(args[0]);
         } else if (key === "children") {
           if (!Array.isArray(args[0])) throw new Error(kind + ".children() needs an array");
           if (args[0].some((c) => c === undefined || c === null)) throw new Error(kind + ".children() holds an empty entry");
           target.kids += args[0].length;
+          target.childList.push(...args[0]);
         } else if (key === "when") {
           if (args[0]) return args[1](proxy);
         } else if (key === "hover" || key === "active") {
@@ -258,7 +261,7 @@ model.handle("hail", true);
 check("hail goes to the hailing agent first, switching to the active view", world.ran.at(-2)[0] === "layout.switch" && world.ran.at(-1)[1].terminal === "t5");
 everything();
 
-// The ambient view takes any number of crew: one row to four, two rows to eight, then pages.
+// The ambient view takes any number of crew: one row to two, two rows to eight, then pages.
 {
   const crowd = (n) => { world.agents = Array.from({ length: n }, (_, i) => agent(`t${i + 1}`, `s${(i % 4) + 1}`, i === 9 ? "blocked" : "working")); };
   const sizes = () => model.pages(model.muster(model.fleet())).map((p) => p.length).join();
@@ -280,7 +283,22 @@ everything();
     }
   }
   check("the ambient view draws 1 to 17 crew at any window size, on every page", view.role.pages === 3 && sizes() === "6,6,5");
+  // The grid: cards per row, read off the rendered tree (the fleet strip is the last child).
+  const grid = (n) => {
+    crowd(n);
+    world.props = { role: "ambient" };
+    const g = new Cockpit();
+    g.init(world.props, cx);
+    Object.assign(g.role, { width: 1600, height: 900 });
+    return g.render(cx).childList.slice(0, -1)
+      .map((r) => r.childList.filter((c) => String(c.id ?? "").startsWith("card-")).length).join();
+  };
+  check("two crew fill one row", grid(2) === "2");
+  check("three crew already take two rows, two columns", grid(3) === "2,1");
+  check("four crew take two rows by two columns, not four across", grid(4) === "2,2");
+  check("eight crew still take two rows of four", grid(8) === "4,4");
   // The page switches: on holds a page, off lets the pages turn again.
+  crowd(17);
   const realCx = cx.timer.every;
   let turn;
   cx.timer.every = (ms, fn) => { if (ms === 10_000) turn = fn; return { cancel() {} }; };
